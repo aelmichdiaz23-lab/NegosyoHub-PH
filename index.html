@@ -73,13 +73,16 @@
 <main>
   <section class="card" id="authSection">
     <h2>Mag-login o Gumawa ng Account</h2>
-    <input id="email" type="email" placeholder="Email address"
-           autocomplete="email">
-    <input id="password" type="password" placeholder="Password"
-           autocomplete="current-password">
+
+    <input id="email" type="email"
+           placeholder="Email address" autocomplete="email">
+
+    <input id="password" type="password"
+           placeholder="Password" autocomplete="current-password">
 
     <button class="full" onclick="signIn()">Login</button>
     <button class="full" onclick="signUp()">Gumawa ng Account</button>
+
     <p id="message" role="status"></p>
   </section>
 
@@ -88,15 +91,15 @@
     <p id="welcome"></p>
 
     <div class="menu">
-      <button onclick="showFeature('📦 Produkto')">📦 Produkto</button>
-      <button onclick="showFeature('💰 Benta')">💰 Benta</button>
-      <button onclick="showFeature('👥 Customers')">👥 Customers</button>
-      <button onclick="showFeature('📝 Utang')">📝 Utang</button>
-      <button onclick="showFeature('📊 Reports')">📊 Reports</button>
-      <button onclick="showFeature('🏪 Impormasyon ng Negosyo')">🏪 Negosyo</button>
+      <button onclick="showFeature('Produkto')">📦 Produkto</button>
+      <button onclick="showFeature('Benta')">💰 Benta</button>
+      <button onclick="showFeature('Customers')">👥 Customers</button>
+      <button onclick="showFeature('Utang')">📝 Utang</button>
+      <button onclick="showFeature('Reports')">📊 Reports</button>
+      <button onclick="showFeature('Negosyo')">🏪 Negosyo</button>
     </div>
 
-    <div id="feature" class="card">
+    <div class="card" id="feature">
       Pumili ng feature sa itaas.
     </div>
 
@@ -105,7 +108,7 @@
 </main>
 
 <script>
-  // SUPABASE PROJECT SETTINGS
+  // SUPABASE SETTINGS
   const SUPABASE_URL =
     'https://qdylgqxcqivdqpcwhwjp.supabase.co';
 
@@ -124,27 +127,28 @@
 
     if (!email || password.length < 6) {
       message.textContent =
-        'Ilagay ang tamang email at password na hindi bababa sa 6 na character.';
+        'Ilagay ang tamang email at password na may hindi bababa sa 6 na character.';
       return;
     }
 
     message.textContent = 'Gumagawa ng account...';
 
     const { data, error } = await db.auth.signUp({
-      email,
-      password
+      email: email,
+      password: password
     });
 
     if (error) {
-      message.textContent = 'Hindi nagtagumpay: ' + error.message;
+      message.textContent = 'Error: ' + error.message;
       return;
     }
 
-    message.textContent = data.session
-      ? 'Matagumpay ang registration!'
-      : 'Tingnan ang email para sa confirmation link kung hinihingi ito.';
-
-    if (data.session) showDashboard(data.session.user);
+    if (data.session) {
+      showDashboard(data.session.user);
+    } else {
+      message.textContent =
+        'Matagumpay ang registration request. Tingnan ang email para sa confirmation link.';
+    }
   }
 
   async function signIn() {
@@ -152,15 +156,20 @@
     const password = document.getElementById('password').value;
     const message = document.getElementById('message');
 
+    if (!email || !password) {
+      message.textContent = 'Ilagay ang email at password.';
+      return;
+    }
+
     message.textContent = 'Nagla-login...';
 
     const { data, error } = await db.auth.signInWithPassword({
-      email,
-      password
+      email: email,
+      password: password
     });
 
     if (error) {
-      message.textContent = 'Hindi makapag-login: ' + error.message;
+      message.textContent = 'Login error: ' + error.message;
       return;
     }
 
@@ -176,14 +185,14 @@
 
   function showFeature(name) {
     document.getElementById('feature').textContent =
-      name + ': Susunod nating ikokonekta ang feature na ito sa database.';
+      name + ': Ihahanda pa natin ang database connection at mga function para sa feature na ito.';
   }
 
   async function signOut() {
     const { error } = await db.auth.signOut();
 
     if (error) {
-      alert('Hindi nakapag-logout: ' + error.message);
+      alert('Logout error: ' + error.message);
       return;
     }
 
@@ -193,9 +202,11 @@
   }
 
   async function checkSession() {
-    const { data } = await db.auth.getSession();
+    const { data, error } = await db.auth.getSession();
 
-    if (data.session) showDashboard(data.session.user);
+    if (!error && data.session) {
+      showDashboard(data.session.user);
+    }
   }
 
   checkSession();
