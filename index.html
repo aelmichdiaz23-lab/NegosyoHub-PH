@@ -1,0 +1,119 @@
+
+<!DOCTYPE html>
+<html lang="tl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NegosyoHub PH</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f0f5f1;
+      color: #183b2b;
+    }
+    .container {
+      max-width: 400px;
+      margin: 45px auto;
+      padding: 24px;
+    }
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 4px 18px #00000012;
+    }
+    h1 { color: #16834a; text-align: center; }
+    p { text-align: center; color: #647067; }
+    input, button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 13px;
+      margin-top: 12px;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    input { border: 1px solid #ccd7cf; }
+    button {
+      border: none;
+      background: #16834a;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .secondary {
+      background: #e6f2e9;
+      color: #16834a;
+    }
+    #message { font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>NegosyoHub PH</h1>
+      <p>Kasama mo sa pag-unlad ng negosyo!</p>
+
+      <input id="email" type="email"
+        placeholder="Email address" autocomplete="email">
+
+      <input id="password" type="password"
+        placeholder="Password (minimum 6 characters)"
+        autocomplete="new-password">
+
+      <button id="signup">Gumawa ng Account</button>
+      <button id="login" class="secondary">Mag-Login</button>
+
+      <p id="message"></p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from
+      'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    const SUPABASE_URL = 'https://qdylgqxcqivdqpcwhwjp.supabase.co';;
+   const SUPABASE_ANON_KEY = 'sb_publishable_ANG_BUONG_KEY_MO'; ;
+
+    const supabase = createClient(
+      SUPABASE_URL, SUPABASE_ANON_KEY
+    );
+
+    const message = document.getElementById('message');
+
+    document.getElementById('signup').onclick = async () => {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!email || password.length < 6) {
+        message.textContent =
+          'Ilagay ang email at password na hindi bababa sa 6 na character.';
+        return;
+      }
+
+      message.textContent = 'Sandali lang...';
+
+      const { error } = await supabase.auth.signUp({
+        email, password
+      });
+
+      message.textContent = error
+        ? error.message
+        : 'Matagumpay ang request! Tingnan ang email kung kailangan ng confirmation.';
+    };
+
+    document.getElementById('login').onclick = async () => {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email, password
+      });
+
+      message.textContent = error
+        ? error.message
+        : 'Matagumpay kang naka-login sa NegosyoHub PH!';
+    };
+  </script>
+</body>
+</html>
