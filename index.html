@@ -4,117 +4,201 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#087f5b">
   <title>NegosyoHub PH</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <style>
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      background: #f0f5f1;
-      color: #183b2b;
+      background: #f3f7f5;
+      color: #222;
     }
-    .container {
-      max-width: 400px;
-      margin: 45px auto;
-      padding: 24px;
+    header {
+      background: #087f5b;
+      color: white;
+      text-align: center;
+      padding: 22px 12px;
+    }
+    main {
+      max-width: 700px;
+      margin: auto;
+      padding: 16px;
     }
     .card {
       background: white;
-      padding: 24px;
-      border-radius: 16px;
-      box-shadow: 0 4px 18px #00000012;
+      padding: 18px;
+      margin-bottom: 15px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px #0001;
     }
-    h1 { color: #16834a; text-align: center; }
-    p { text-align: center; color: #647067; }
-    input, button {
+    input {
       width: 100%;
-      box-sizing: border-box;
-      padding: 13px;
-      margin-top: 12px;
-      border-radius: 8px;
+      padding: 12px;
+      margin: 7px 0;
+      border: 1px solid #ccc;
+      border-radius: 7px;
       font-size: 16px;
     }
-    input { border: 1px solid #ccd7cf; }
     button {
-      border: none;
-      background: #16834a;
+      padding: 12px;
+      margin: 4px 0;
+      border: 0;
+      border-radius: 7px;
+      background: #087f5b;
       color: white;
-      font-weight: bold;
+      font-size: 15px;
       cursor: pointer;
     }
-    .secondary {
-      background: #e6f2e9;
-      color: #16834a;
+    .full { width: 100%; }
+    .menu {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
     }
-    #message { font-size: 14px; }
+    .hidden { display: none; }
+    #message { overflow-wrap: anywhere; }
   </style>
 </head>
+
 <body>
-  <div class="container">
-    <div class="card">
-      <h1>NegosyoHub PH</h1>
-      <p>Kasama mo sa pag-unlad ng negosyo!</p>
+<header>
+  <h1>NegosyoHub PH</h1>
+  <p>Kaagapay sa iyong negosyo!</p>
+</header>
 
-      <input id="email" type="email"
-        placeholder="Email address" autocomplete="email">
+<main>
+  <section class="card" id="authSection">
+    <h2>Mag-login o Gumawa ng Account</h2>
+    <input id="email" type="email" placeholder="Email address"
+           autocomplete="email">
+    <input id="password" type="password" placeholder="Password"
+           autocomplete="current-password">
 
-      <input id="password" type="password"
-        placeholder="Password (minimum 6 characters)"
-        autocomplete="new-password">
+    <button class="full" onclick="signIn()">Login</button>
+    <button class="full" onclick="signUp()">Gumawa ng Account</button>
+    <p id="message" role="status"></p>
+  </section>
 
-      <button id="signup">Gumawa ng Account</button>
-      <button id="login" class="secondary">Mag-Login</button>
+  <section class="card hidden" id="dashboard">
+    <h2>Dashboard</h2>
+    <p id="welcome"></p>
 
-      <p id="message"></p>
+    <div class="menu">
+      <button onclick="showFeature('📦 Produkto')">📦 Produkto</button>
+      <button onclick="showFeature('💰 Benta')">💰 Benta</button>
+      <button onclick="showFeature('👥 Customers')">👥 Customers</button>
+      <button onclick="showFeature('📝 Utang')">📝 Utang</button>
+      <button onclick="showFeature('📊 Reports')">📊 Reports</button>
+      <button onclick="showFeature('🏪 Impormasyon ng Negosyo')">🏪 Negosyo</button>
     </div>
-  </div>
 
-  <script type="module">
-    import { createClient } from
-      'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    <div id="feature" class="card">
+      Pumili ng feature sa itaas.
+    </div>
 
-    
-const SUPABASE_URL = 'https://qdylgqxcqivdqpcwhwjp.supabase.co';
-   const SUPABASE_ANON_KEY = 'sb_publishable_1O4HW3947xic0GQgUPGxxQ_XJxwrKis' ;
+    <button onclick="signOut()">Logout</button>
+  </section>
+</main>
 
-    const supabase = createClient(
-      SUPABASE_URL, SUPABASE_ANON_KEY
-    );
+<script>
+  // SUPABASE PROJECT SETTINGS
+  const SUPABASE_URL =
+    'https://qdylgqxcqivdqpcwhwjp.supabase.co';
 
+  const SUPABASE_PUBLISHABLE_KEY =
+    'sb_publishable_1O4HW3947xic0GQgUPGxxQ_XJxwrKis';
+
+  const db = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY
+  );
+
+  async function signUp() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
     const message = document.getElementById('message');
 
-    document.getElementById('signup').onclick = async () => {
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
+    if (!email || password.length < 6) {
+      message.textContent =
+        'Ilagay ang tamang email at password na hindi bababa sa 6 na character.';
+      return;
+    }
 
-      if (!email || password.length < 6) {
-        message.textContent =
-          'Ilagay ang email at password na hindi bababa sa 6 na character.';
-        return;
-      }
+    message.textContent = 'Gumagawa ng account...';
 
-      message.textContent = 'Sandali lang...';
+    const { data, error } = await db.auth.signUp({
+      email,
+      password
+    });
 
-      const { error } = await supabase.auth.signUp({
-        email, password
-      });
+    if (error) {
+      message.textContent = 'Hindi nagtagumpay: ' + error.message;
+      return;
+    }
 
-      message.textContent = error
-        ? error.message
-        : 'Matagumpay ang request! Tingnan ang email kung kailangan ng confirmation.';
-    };
+    message.textContent = data.session
+      ? 'Matagumpay ang registration!'
+      : 'Tingnan ang email para sa confirmation link kung hinihingi ito.';
 
-    document.getElementById('login').onclick = async () => {
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
+    if (data.session) showDashboard(data.session.user);
+  }
 
-      const { error } = await supabase.auth.signInWithPassword({
-        email, password
-      });
+  async function signIn() {
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    const message = document.getElementById('message');
 
-      message.textContent = error
-        ? error.message
-        : 'Matagumpay kang naka-login sa NegosyoHub PH!';
-    };
-  </script>
+    message.textContent = 'Nagla-login...';
+
+    const { data, error } = await db.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      message.textContent = 'Hindi makapag-login: ' + error.message;
+      return;
+    }
+
+    showDashboard(data.user);
+  }
+
+  function showDashboard(user) {
+    document.getElementById('authSection').classList.add('hidden');
+    document.getElementById('dashboard').classList.remove('hidden');
+    document.getElementById('welcome').textContent =
+      'Naka-login bilang ' + user.email;
+  }
+
+  function showFeature(name) {
+    document.getElementById('feature').textContent =
+      name + ': Susunod nating ikokonekta ang feature na ito sa database.';
+  }
+
+  async function signOut() {
+    const { error } = await db.auth.signOut();
+
+    if (error) {
+      alert('Hindi nakapag-logout: ' + error.message);
+      return;
+    }
+
+    document.getElementById('dashboard').classList.add('hidden');
+    document.getElementById('authSection').classList.remove('hidden');
+    document.getElementById('message').textContent = 'Naka-logout ka na.';
+  }
+
+  async function checkSession() {
+    const { data } = await db.auth.getSession();
+
+    if (data.session) showDashboard(data.session.user);
+  }
+
+  checkSession();
+</script>
 </body>
 </html>
