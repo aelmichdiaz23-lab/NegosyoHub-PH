@@ -6,9 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#087f5b">
   <title>NegosyoHub PH</title>
-
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <style>
     * { box-sizing: border-box; }
     body {
@@ -21,24 +19,24 @@
       background: #087f5b;
       color: white;
       text-align: center;
-      padding: 22px 12px;
+      padding: 20px 12px;
     }
     main {
       max-width: 700px;
       margin: auto;
-      padding: 16px;
+      padding: 14px;
     }
     .card {
       background: white;
-      padding: 18px;
-      margin-bottom: 15px;
+      padding: 16px;
+      margin-bottom: 14px;
       border-radius: 12px;
       box-shadow: 0 2px 8px #0001;
     }
     input {
       width: 100%;
       padding: 12px;
-      margin: 7px 0;
+      margin: 6px 0;
       border: 1px solid #ccc;
       border-radius: 7px;
       font-size: 16px;
@@ -53,6 +51,7 @@
       font-size: 15px;
       cursor: pointer;
     }
+    button:disabled { opacity: .5; }
     .full { width: 100%; }
     .menu {
       display: grid;
@@ -60,10 +59,17 @@
       gap: 8px;
     }
     .hidden { display: none; }
-    #message { overflow-wrap: anywhere; }
+    .product {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+      margin: 8px 0;
+      overflow-wrap: anywhere;
+    }
+    .muted { color: #666; font-size: 14px; }
+    #message, #productMessage { overflow-wrap: anywhere; }
   </style>
 </head>
-
 <body>
 <header>
   <h1>NegosyoHub PH</h1>
@@ -73,23 +79,18 @@
 <main>
   <section class="card" id="authSection">
     <h2>Mag-login o Gumawa ng Account</h2>
-
-    <input id="email" type="email"
-           placeholder="Email address" autocomplete="email">
-
-    <input id="password" type="password"
-           placeholder="Password" autocomplete="current-password">
-
+    <input id="email" type="email" placeholder="Email address"
+      autocomplete="email">
+    <input id="password" type="password" placeholder="Password"
+      autocomplete="current-password">
     <button class="full" onclick="signIn()">Login</button>
     <button class="full" onclick="signUp()">Gumawa ng Account</button>
-
     <p id="message" role="status"></p>
   </section>
 
   <section class="card hidden" id="dashboard">
     <h2>Dashboard</h2>
     <p id="welcome"></p>
-
     <div class="menu">
       <button onclick="showFeature('Produkto')">📦 Produkto</button>
       <button onclick="showFeature('Benta')">💰 Benta</button>
@@ -98,11 +99,9 @@
       <button onclick="showFeature('Reports')">📊 Reports</button>
       <button onclick="showFeature('Negosyo')">🏪 Negosyo</button>
     </div>
-
     <div class="card" id="feature">
       Pumili ng feature sa itaas.
     </div>
-
     <button onclick="signOut()">Logout</button>
   </section>
 </main>
@@ -115,10 +114,15 @@
   const SUPABASE_PUBLISHABLE_KEY =
     'sb_publishable_1O4HW3947xic0GQgUPGxxQ_XJxwrKis';
 
+  const SITE_URL =
+    'https://aelmichdiaz23-lab.github.io/NegosyoHub-PH/';
+
   const db = window.supabase.createClient(
     SUPABASE_URL,
     SUPABASE_PUBLISHABLE_KEY
   );
+
+  let currentBusinessId = null;
 
   async function signUp() {
     const email = document.getElementById('email').value.trim();
@@ -127,15 +131,18 @@
 
     if (!email || password.length < 6) {
       message.textContent =
-        'Ilagay ang tamang email at password na may hindi bababa sa 6 na character.';
+        'Ilagay ang email at password na hindi bababa sa 6 na character.';
       return;
     }
 
     message.textContent = 'Gumagawa ng account...';
 
     const { data, error } = await db.auth.signUp({
-      email: email,
-      password: password
+      email,
+      password,
+      options: {
+        emailRedirectTo: SITE_URL
+      }
     });
 
     if (error) {
@@ -147,7 +154,7 @@
       showDashboard(data.session.user);
     } else {
       message.textContent =
-        'Matagumpay ang registration request. Tingnan ang email para sa confirmation link.';
+        'Tingnan ang email mo at pindutin ang bagong confirmation link.';
     }
   }
 
@@ -164,8 +171,8 @@
     message.textContent = 'Nagla-login...';
 
     const { data, error } = await db.auth.signInWithPassword({
-      email: email,
-      password: password
+      email,
+      password
     });
 
     if (error) {
@@ -184,8 +191,204 @@
   }
 
   function showFeature(name) {
-    document.getElementById('feature').textContent =
-      name + ': Ihahanda pa natin ang database connection at mga function para sa feature na ito.';
+    const feature = document.getElementById('feature');
+
+    if (name !== 'Produkto') {
+      feature.textContent =
+        name + ': Ihahanda pa natin ang feature na ito.';
+      return;
+    }
+
+    feature.innerHTML = `
+      <h3>📦 Pamamahala ng Produkto</h3>
+      <p class="muted">Ilagay ang detalye ng produktong ibebenta mo.</p>
+
+      <form id="productForm">
+        <label>Pangalan ng produkto *</label>
+        <input id="pName" required maxlength="150"
+          placeholder="Halimbawa: Sardinas">
+
+        <label>Barcode (opsyonal)</label>
+        <input id="pBarcode" maxlength="100"
+          placeholder="Barcode">
+
+        <label>Presyo ng puhunan (₱) *</label>
+        <input id="pCost" type="number" min="0" step="0.01"
+          required placeholder="Halimbawa: 18">
+
+        <label>Presyo ng benta (₱) *</label>
+        <input id="pSelling" type="number" min="0" step="0.01"
+          required placeholder="Halimbawa: 22">
+
+        <label>Dami ng stock *</label>
+        <input id="pStock" type="number" min="0" step="1"
+          required value="0">
+
+        <label>Low-stock alert level</label>
+        <input id="pLow" type="number" min="0" step="1" value="5">
+
+        <button class="full" id="saveProduct" type="submit">
+          I-save ang Produkto
+        </button>
+      </form>
+
+      <p id="productMessage" role="status"></p>
+      <hr>
+      <h3>Listahan ng Produkto</h3>
+      <button type="button" onclick="loadProducts()">I-refresh ang listahan</button>
+      <div id="productList">Kinukuha ang mga produkto...</div>
+    `;
+
+    document.getElementById('productForm')
+      .addEventListener('submit', saveProduct);
+
+    loadProducts();
+  }
+
+  async function getBusinessId() {
+    if (currentBusinessId) return currentBusinessId;
+
+    const { data, error } = await db
+      .from('businesses')
+      .select('id')
+      .limit(1);
+
+    if (error) {
+      throw new Error(
+        'Hindi makuha ang negosyo: ' + error.message
+      );
+    }
+
+    if (!data || data.length === 0) {
+      throw new Error(
+        'Wala pang accessible na record sa businesses table. ' +
+        'Kailangan muna nating i-set up ang negosyo.'
+      );
+    }
+
+    currentBusinessId = data[0].id;
+    return currentBusinessId;
+  }
+
+  async function saveProduct(event) {
+    event.preventDefault();
+
+    const message = document.getElementById('productMessage');
+    const button = document.getElementById('saveProduct');
+
+    button.disabled = true;
+    message.textContent = 'Sine-save ang produkto...';
+
+    try {
+      const businessId = await getBusinessId();
+
+      const product = {
+        business_id: businessId,
+        name: document.getElementById('pName').value.trim(),
+        barcode: document.getElementById('pBarcode').value.trim() || null,
+        cost_price: Number(document.getElementById('pCost').value),
+        selling_price: Number(document.getElementById('pSelling').value),
+        stock_quantity: Number(document.getElementById('pStock').value),
+        low_stock_level: Number(document.getElementById('pLow').value)
+      };
+
+      if (!product.name) {
+        throw new Error('Ilagay ang pangalan ng produkto.');
+      }
+
+      if (
+        product.cost_price < 0 ||
+        product.selling_price < 0 ||
+        product.stock_quantity < 0 ||
+        product.low_stock_level < 0
+      ) {
+        throw new Error('Hindi puwedeng negatibo ang mga halaga.');
+      }
+
+      const { error } = await db
+        .from('products')
+        .insert(product);
+
+      if (error) throw error;
+
+      message.textContent = 'Matagumpay na na-save ang produkto!';
+      document.getElementById('productForm').reset();
+      document.getElementById('pStock').value = 0;
+      document.getElementById('pLow').value = 5;
+
+      await loadProducts();
+    } catch (error) {
+      message.textContent = 'Hindi na-save: ' + error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function loadProducts() {
+    const list = document.getElementById('productList');
+    if (!list) return;
+
+    list.textContent = 'Kinukuha ang mga produkto...';
+
+    try {
+      const businessId = await getBusinessId();
+
+      const { data, error } = await db
+        .from('products')
+        .select(
+          'id,name,barcode,cost_price,selling_price,' +
+          'stock_quantity,low_stock_level,created_at,business_id'
+        )
+        .eq('business_id', businessId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      list.replaceChildren();
+
+      if (!data || data.length === 0) {
+        list.textContent = 'Wala pang produktong naidagdag.';
+        return;
+      }
+
+      data.forEach(product => {
+        const item = document.createElement('div');
+        item.className = 'product';
+
+        const title = document.createElement('strong');
+        title.textContent = product.name;
+        item.appendChild(title);
+
+        const details = document.createElement('p');
+        details.textContent =
+          'Puhunan: ₱' + Number(product.cost_price).toFixed(2) +
+          ' | Benta: ₱' + Number(product.selling_price).toFixed(2);
+        item.appendChild(details);
+
+        const stock = document.createElement('p');
+        stock.textContent =
+          'Stock: ' + product.stock_quantity +
+          ' | Low-stock alert: ' + product.low_stock_level;
+        item.appendChild(stock);
+
+        if (product.barcode) {
+          const barcode = document.createElement('p');
+          barcode.textContent = 'Barcode: ' + product.barcode;
+          item.appendChild(barcode);
+        }
+
+        if (Number(product.stock_quantity) <= Number(product.low_stock_level)) {
+          const warning = document.createElement('p');
+          warning.textContent = '⚠️ Mababa na ang stock!';
+          warning.style.color = '#b45309';
+          item.appendChild(warning);
+        }
+
+        list.appendChild(item);
+      });
+    } catch (error) {
+      list.textContent = 'Hindi makuha ang mga produkto: ' + error.message;
+    }
   }
 
   async function signOut() {
@@ -196,6 +399,7 @@
       return;
     }
 
+    currentBusinessId = null;
     document.getElementById('dashboard').classList.add('hidden');
     document.getElementById('authSection').classList.remove('hidden');
     document.getElementById('message').textContent = 'Naka-logout ka na.';
