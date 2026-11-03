@@ -484,6 +484,26 @@
       return;
     }
 
+    if (name === 'Analytics') {
+      feature.innerHTML = `
+        <h3>📈 Dashboard Analytics</h3>
+        <p class="muted">Buod ng performance ng iyong negosyo.</p>
+
+        <button type="button" onclick="loadDashboardAnalytics()">
+          I-refresh ang Dashboard
+        </button>
+
+        <p id="analyticsMessage">Kinukuha ang business data...</p>
+
+        <div id="analyticsDashboard">
+          Kinukuha ang reports...
+        </div>
+      `;
+
+      loadDashboardAnalytics();
+      return;
+    }
+    
     if (name === 'Produkto') {
       feature.innerHTML = `
         <h3>📦 Pamamahala ng Produkto</h3>
