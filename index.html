@@ -421,6 +421,66 @@
       return;
     }
     
+    if (name === 'Expenses') {
+      feature.innerHTML = `
+        <h3>💸 Expenses Management</h3>
+        <p class="muted">Itala ang mga gastos ng negosyo.</p>
+
+        <form id="expenseForm">
+          <label>Uri ng Gastos *</label>
+          <select id="expenseCategory" required>
+            <option value="">Pumili ng gastos</option>
+            <option value="Kuryente">Kuryente</option>
+            <option value="Tubig">Tubig</option>
+            <option value="Pamasahe">Pamasahe</option>
+            <option value="Upa">Upa</option>
+            <option value="Supplies">Supplies</option>
+            <option value="Sahod">Sahod</option>
+            <option value="Iba pa">Iba pa</option>
+          </select>
+
+          <label>Detalye ng Gastos</label>
+          <input id="expenseDescription" type="text"
+            maxlength="250"
+            placeholder="Hal. Bayad sa kuryente">
+
+          <label>Halaga (₱) *</label>
+          <input id="expenseAmount" type="number"
+            min="0.01" step="0.01" required
+            placeholder="Ilagay ang halaga">
+
+          <label>Petsa ng Gastos *</label>
+          <input id="expenseDate" type="date" required>
+
+          <button class="full" type="submit">
+            I-save ang Gastos
+          </button>
+        </form>
+
+        <p id="expenseMessage" role="status"></p>
+
+        <hr>
+        <h3>Listahan ng mga Gastos</h3>
+
+        <button type="button" onclick="loadExpenses()">
+          I-refresh ang Listahan
+        </button>
+
+        <div id="expenseList">
+          Kinukuha ang mga gastos...
+        </div>
+      `;
+
+      document.getElementById('expenseForm')
+        .addEventListener('submit', saveExpense);
+
+      document.getElementById('expenseDate').value =
+        new Date().toLocaleDateString('en-CA');
+
+      loadExpenses();
+      return;
+    }
+
     if (name === 'Produkto') {
       feature.innerHTML = `
         <h3>📦 Pamamahala ng Produkto</h3>
