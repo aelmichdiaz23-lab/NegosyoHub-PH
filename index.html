@@ -1590,7 +1590,82 @@
       list.textContent = 'Hindi makuha ang stock history: ' + error.message;
     }
   }
-  
+
+  async function loadLowStockProducts() {
+    const list = document.getElementById('lowStockList');
+    const message = document.getElementById('lowStockMessage');
+
+    if (!list) return;
+
+    list.textContent = 'Kinukuha ang inventory...';
+
+    try {
+      const businessId = await getBusinessId();
+
+      const { data, error } = await db
+        .from('products')
+        .select('id,name,stock_quantity,low_stock_level')
+        .eq('business_id', businessId)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
+      const alerts = (data || []).filter(product => {
+        const stock = Number(product.stock_quantity || 0);
+        const level = Number(product.low_stock_level || 0);
+
+        return stock <= 0 || (level > 0 && stock <= level);
+      });
+
+      list.replaceChildren();
+
+      if (message) {
+        message.textContent =
+          'Bilang ng produktong nangangailangan ng restock: ' +
+          alerts.length;
+      }
+
+      if (!alerts.length) {
+        list.textContent = 'Walang produktong nangangailangan ng restock.';
+        return;
+      }
+
+      alerts.forEach(product => {
+        const item = document.createElement('div');
+        item.className = 'product';
+
+        const title = document.createElement('strong');
+        title.textContent = product.name;
+
+        const stock = Number(product.stock_quantity || 0);
+        const level = Number(product.low_stock_level || 0);
+
+        const quantity = document.createElement('p');
+        quantity.textContent =
+          'Kasalukuyang stock: ' + stock;
+
+        const threshold = document.createElement('p');
+        threshold.textContent =
+          'Low stock level: ' + level;
+
+        const status = document.createElement('p');
+
+        if (stock <= 0) {
+          status.textContent = '🔴 OUT OF STOCK';
+        } else {
+          status.textContent = '⚠️ LOW STOCK';
+        }
+
+        item.append(title, quantity, threshold, status);
+        list.appendChild(item);
+      });
+
+    } catch (error) {
+      list.textContent =
+        'Hindi makuha ang low stock products: ' + error.message;
+    }
+  }
+
   async function signOut() {
     const { error } = await db.auth.signOut();
 
