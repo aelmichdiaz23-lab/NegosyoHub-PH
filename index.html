@@ -2112,6 +2112,347 @@
     }
   }
 
+  async function loadProfessionalReport() {
+    const type = document.getElementById('professionalReportType');
+    const startInput = document.getElementById('reportStartDate');
+    const endInput = document.getElementById('reportEndDate');
+
+    const message = document.getElementById('professionalReportMessage');
+    const title = document.getElementById('professionalReportTitle');
+    const period = document.getElementById('professionalReportPeriod');
+    const summary = document.getElementById('professionalReportSummary');
+    const details = document.getElementById('professionalReportDetails');
+
+    if (!type || !startInput || !endInput || !summary || !details) return;
+
+    summary.replaceChildren();
+    details.replaceChildren();
+
+    try {
+      const start = startInput.value;
+      const end = endInput.value;
+      const reportType = type.value;
+
+      if (start && end && start > end) {
+        throw new Error('Mali ang date range. Suriin ang mga petsa.');
+      }
+
+      message.textContent = 'Kinukuha ang report...';
+
+      const businessId = await getBusinessId();
+
+      const results = await Promise.all([
+        db.from('sales')
+          .select('id,product_id,quantity,selling_price,total_amount,cost_price_at_sale,sell_date,sale_date')
+          .eq('business_id', businessId),
+
+        db.from('products')
+          .select('id,name,cost_price,stock_quantity,low_stock_level')
+          .eq('business_id', businessId),
+
+        db.from('expenses')
+          .select('id,category,description,amount,expense_date,created_at')
+          .eq('business_id', businessId),
+
+        db.from('debts')
+          .select('id,customer_id,amount,amount_paid,notes,created_at')
+          .eq('business_id', businessId),
+
+        db.from('customers')
+          .select('id,name')
+          .eq('business_id', businessId)
+      ]);
+
+      const [salesResult, productsResult, expensesResult, debtsResult, customersResult] = results;
+
+      if (salesResult.error) throw salesResult.error;
+      if (productsResult.error) throw productsResult.error;
+      if (expensesResult.error) throw expensesResult.error;
+      if (debtsResult.error) throw debtsResult.error;
+      if (customersResult.error) throw customersResult.error;
+
+      const products = productsResult.data || [];
+      const productMap = new Map(
+        products.map(p => [p.id, p])
+      );
+
+      const customerNames = new Map(
+        (customersResult.data || []).map(c => [c.id, c.name])
+      );
+
+      const allSales = salesResult.data || [];
+      const allExpenses = expensesResult.data || [];
+      const allDebts = debtsResult.data || [];
+
+      const getDate = value => {
+        if (!value) return '';
+        return String(value).slice(0, 10);
+      };
+
+      const inRange = date => {
+        const value = getDate(date);
+        return Boolean(value) &&
+          (!start || value >= start) &&
+          (!end || value <= end);
+      };
+
+      const sales = allSales.filter(s => 
+        inRange(s.sell_date || s.sale_date)
+      );
+
+      const expenses = allExpenses.filter(e =>
+        inRange(e.expense_date)
+      );
+
+      const money = value =>
+        '₱' + Number(value || 0).toLocaleString('en-PH', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+
+      const titles = {
+        sales: 'Sales Report',
+        profit: 'Profit and Loss Report',
+        expenses: 'Expense Report',
+        inventory: 'Inventory Report',
+        debts: 'Outstanding Debt Report'
+      };
+
+      title.textContent = titles[reportType] || 'Business Report';
+
+      period.textContent =
+        reportType === 'inventory' || reportType === 'debts'
+          ? 'Kasalukuyang snapshot — hindi sakop ng date filter.'
+          : 'Panahon: ' + (start || 'Lahat') + ' hanggang ' + (end || 'Lahat');
+
+      const addSummary = (label, value) => {
+        const card = document.createElement('div');
+        card.className = 'product';
+
+        const heading = document.createElement('strong');
+        heading.textContent = label;
+
+        const amount = document.createElement('h3');
+        amount.textContent = value;
+
+        card.append(heading, amount);
+        summary.appendChild(card);
+      };
+
+      const addTable = (headers, rows) => {
+        const table = document.createElement('table');
+        table.style.width = '100%';
+        table.style.borderCollapse = 'collapse';
+        table.style.marginTop = '12px';
+
+        const thead = document.createElement('thead');
+        const headerRow = document.createElement('tr');
+
+        headers.forEach(header => {
+          const th = document.createElement('th');
+          th.textContent = header;
+          th.style.textAlign = 'left';
+          th.style.padding = '8px';
+          th.style.borderBottom = '1px solid #999';
+          headerRow.appendChild(th);
+        });
+
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+
+        rows.forEach(row => {
+          const tr = document.createElement('tr');
+
+          row.forEach(value => {
+            const td = document.createElement('td');
+            td.textContent = String(value ?? '');
+            td.style.padding = '8px';
+            td.style.borderBottom = '1px solid #ddd';
+            tr.appendChild(td);
+          });
+
+          tbody.appendChild(tr);
+        });
+
+        table.appendChild(tbody);
+        details.appendChild(table);
+      };
+
+      if (reportType === 'sales') {
+        const total = sales.reduce(
+          (sum, s) => sum + Number(s.total_amount || 0), 0
+        );
+
+        addSummary('Kabuuang Benta', money(total));
+        addSummary('Bilang ng Transaksyon', sales.length);
+
+        addTable(
+          ['Petsa', 'Produkto', 'Quantity', 'Selling Price', 'Total'],
+          sales.map(s => [
+            getDate(s.sell_date || s.sale_date),
+            productMap.get(s.product_id)?.name || 'Hindi kilala',
+            s.quantity,
+            money(s.selling_price),
+            money(s.total_amount)
+          ])
+        );
+
+      } else if (reportType === 'profit') {
+        let totalSales = 0;
+        let totalCost = 0;
+        let estimatedCount = 0;
+
+        sales.forEach(s => {
+          const amount = Number(s.total_amount || 0);
+          const quantity = Number(s.quantity || 0);
+          const product = productMap.get(s.product_id);
+
+          const unitCost =
+            s.cost_price_at_sale !== null &&
+            s.cost_price_at_sale !== undefined
+              ? Number(s.cost_price_at_sale)
+              : Number(product?.cost_price || 0);
+
+          if (s.cost_price_at_sale === null ||
+              s.cost_price_at_sale === undefined) {
+            estimatedCount++;
+          }
+
+          totalSales += amount;
+          totalCost += unitCost * quantity;
+        });
+
+        const grossProfit = totalSales - totalCost;
+
+        const totalExpense = expenses.reduce(
+          (sum, e) => sum + Number(e.amount || 0), 0
+        );
+
+        addSummary('Kabuuang Benta', money(totalSales));
+        addSummary('Estimated Product Cost', money(totalCost));
+        addSummary('Estimated Gross Profit', money(grossProfit));
+        addSummary('Kabuuang Gastos', money(totalExpense));
+        addSummary('Estimated Net Profit', money(grossProfit - totalExpense));
+
+        const note = document.createElement('p');
+        note.textContent = estimatedCount
+          ? estimatedCount + ' sales record(s) ang gumagamit ng kasalukuyang product cost bilang estimate.'
+          : 'Lahat ng sales ay may recorded historical cost.';
+
+        details.appendChild(note);
+
+        addTable(
+          ['Petsa', 'Produkto', 'Sales', 'Product Cost', 'Gross Profit'],
+          sales.map(s => {
+            const product = productMap.get(s.product_id);
+            const quantity = Number(s.quantity || 0);
+            const amount = Number(s.total_amount || 0);
+            const unitCost =
+              s.cost_price_at_sale !== null &&
+              s.cost_price_at_sale !== undefined
+                ? Number(s.cost_price_at_sale)
+                : Number(product?.cost_price || 0);
+
+            const cost = unitCost * quantity;
+
+            return [
+              getDate(s.sell_date || s.sale_date),
+              product?.name || 'Hindi kilala',
+              money(amount),
+              money(cost),
+              money(amount - cost)
+            ];
+          })
+        );
+
+      } else if (reportType === 'expenses') {
+        const total = expenses.reduce(
+          (sum, e) => sum + Number(e.amount || 0), 0
+        );
+
+        addSummary('Kabuuang Gastos', money(total));
+        addSummary('Bilang ng Gastos', expenses.length);
+
+        addTable(
+          ['Petsa', 'Category', 'Description', 'Amount'],
+          expenses.map(e => [
+            getDate(e.expense_date),
+            e.category,
+            e.description || '',
+            money(e.amount)
+          ])
+        );
+
+      } else if (reportType === 'inventory') {
+        const totalValue = products.reduce(
+          (sum, p) => sum +
+            Number(p.stock_quantity || 0) *
+            Number(p.cost_price || 0),
+          0
+        );
+
+        addSummary('Kabuuang Produkto', products.length);
+        addSummary('Inventory Value', money(totalValue));
+
+        addTable(
+          ['Produkto', 'Stock', 'Cost Price', 'Inventory Value', 'Status'],
+          products.map(p => {
+            const stock = Number(p.stock_quantity || 0);
+            const cost = Number(p.cost_price || 0);
+            const level = Number(p.low_stock_level || 0);
+
+            const status = stock <= 0
+              ? 'OUT OF STOCK'
+              : level > 0 && stock <= level
+                ? 'LOW STOCK'
+                : 'AVAILABLE';
+
+            return [
+              p.name,
+              stock,
+              money(cost),
+              money(stock * cost),
+              status
+            ];
+          })
+        );
+
+      } else if (reportType === 'debts') {
+        const outstanding = allDebts.reduce(
+          (sum, d) => sum + Math.max(
+            0,
+            Number(d.amount || 0) - Number(d.amount_paid || 0)
+          ), 0
+        );
+
+        addSummary('Kabuuang Natitirang Utang', money(outstanding));
+        addSummary('Bilang ng Debt Records', allDebts.length);
+
+        addTable(
+          ['Customer', 'Total Debt', 'Paid', 'Balance', 'Date'],
+          allDebts.map(d => [
+            customerNames.get(d.customer_id) || 'Hindi kilalang customer',
+            money(d.amount),
+            money(d.amount_paid),
+            money(Math.max(
+              0,
+              Number(d.amount || 0) - Number(d.amount_paid || 0)
+            )),
+            getDate(d.created_at)
+          ])
+        );
+      }
+
+      message.textContent =
+        'Matagumpay na nagawa ang ' + titles[reportType] + '!';
+
+    } catch (error) {
+      message.textContent = 'Hindi nagawa ang report: ' + error.message;
+    }
+  }
+
   async function signOut() {
     const { error } = await db.auth.signOut();
 
