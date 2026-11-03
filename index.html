@@ -1177,7 +1177,6 @@
     }
   }
 
-  
   async function loadDebts() {
     const list = document.getElementById('debtList');
     if (!list) return;
@@ -1202,11 +1201,16 @@
 
       if (customerError) throw customerError;
 
+      const { data: payments, error: paymentError } = await db
+        .from('debt_payments')
+        .select('id,debt_id,amount,payment_date,notes')
+        .eq('business_id', businessId)
+        .order('payment_date', { ascending: false });
+
+      if (paymentError) throw paymentError;
+
       const customerNames = new Map(
-        (customers || []).map(customer => [
-          customer.id,
-          customer.name
-        ])
+        (customers || []).map(c => [c.id, c.name])
       );
 
       list.replaceChildren();
@@ -1217,6 +1221,139 @@
         list.textContent = 'Wala pang naitalang utang.';
         return;
       }
+
+      records.forEach(debt => {
+        const item = document.createElement('div');
+        item.className = 'product';
+
+        const total = Number(debt.amount || 0);
+        const paid = Number(debt.amount_paid || 0);
+        const balance = Math.max(0, total - paid);
+
+        const title = document.createElement('strong');
+        title.textContent =
+          customerNames.get(debt.customer_id) || 'Hindi kilalang customer';
+
+        const details = document.createElement('p');
+        details.textContent =
+          'Petsa: ' + new Date(debt.created_at).toLocaleDateString('en-PH') +
+          ' | Kabuuang utang: ₱' + total.toFixed(2);
+
+        const payment = document.createElement('p');
+        payment.textContent = 'Naibayad: ₱' + paid.toFixed(2);
+
+        const remaining = document.createElement('p');
+        remaining.textContent = 'Natitirang utang: ₱' + balance.toFixed(2);
+        remaining.style.fontWeight = 'bold';
+
+        const status = document.createElement('p');
+        status.textContent = balance <= 0 ? '✅ FULLY PAID' : '⏳ MAY BALANSE PA';
+
+        item.append(title, details, payment, remaining, status);
+
+        if (debt.notes) {
+          const note = document.createElement('p');
+          note.textContent = 'Notes: ' + debt.notes;
+          item.appendChild(note);
+        }
+
+        const historyTitle = document.createElement('h4');
+        historyTitle.textContent = 'Kasaysayan ng Bayad';
+        item.appendChild(historyTitle);
+
+        const debtPayments = (payments || []).filter(
+          p => p.debt_id === debt.id
+        );
+
+        if (!debtPayments.length) {
+          const noPayment = document.createElement('p');
+          noPayment.textContent = 'Wala pang naitatalang bayad.';
+          item.appendChild(noPayment);
+        } else {
+          debtPayments.forEach(p => {
+            const paymentDetails = document.createElement('p');
+            paymentDetails.textContent =
+              new Date(p.payment_date).toLocaleDateString('en-PH') +
+              ' — ₱' + Number(p.amount).toFixed(2) +
+              (p.notes ? ' (' + p.notes + ')' : '');
+
+            item.appendChild(paymentDetails);
+          });
+        }
+
+        if (balance > 0) {
+          const paymentTitle = document.createElement('h4');
+          paymentTitle.textContent = 'Mag-record ng Bayad';
+
+          const amountInput = document.createElement('input');
+          amountInput.type = 'number';
+          amountInput.min = '0.01';
+          amountInput.max = balance.toFixed(2);
+          amountInput.step = '0.01';
+          amountInput.placeholder = 'Halaga ng ibinayad (₱)';
+
+          const notesInput = document.createElement('input');
+          notesInput.type = 'text';
+          notesInput.maxLength = 250;
+          notesInput.placeholder = 'Notes sa bayad (opsyonal)';
+
+          const payButton = document.createElement('button');
+          payButton.type = 'button';
+          payButton.textContent = 'I-record ang Bayad';
+
+          payButton.addEventListener('click', async () => {
+            const amount = Number(amountInput.value);
+            const message = document.getElementById('debtMessage');
+
+            try {
+              if (!Number.isFinite(amount) || amount <= 0) {
+                throw new Error('Ilagay ang wastong halaga ng bayad.');
+              }
+
+              if (amount > balance + 0.000001) {
+                throw new Error(
+                  'Sobra ang bayad. Natitirang balanse: ₱' +
+                  balance.toFixed(2)
+                );
+              }
+
+              payButton.disabled = true;
+              message.textContent = 'Sine-save ang bayad...';
+
+              const { data, error } = await db.rpc(
+                'record_debt_payment',
+                {
+                  p_debt_id: debt.id,
+                  p_amount: amount,
+                  p_notes: notesInput.value.trim() || null
+                }
+              );
+
+              if (error) throw error;
+
+              message.textContent =
+                'Matagumpay na naitala ang bayad! Natitirang balanse: ₱' +
+                Number(data.remaining_balance).toFixed(2);
+
+              await loadDebts();
+
+            } catch (error) {
+              message.textContent = 'Hindi naitala ang bayad: ' + error.message;
+            } finally {
+              payButton.disabled = false;
+            }
+          });
+
+          item.append(paymentTitle, amountInput, notesInput, payButton);
+        }
+
+        list.appendChild(item);
+      });
+
+    } catch (error) {
+      list.textContent = 'Hindi makuha ang mga utang: ' + error.message;
+    }
+  }
 
       records.forEach(debt => {
         const item = document.createElement('div');
