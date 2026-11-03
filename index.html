@@ -214,7 +214,45 @@
 
   function showFeature(name) {
     const feature = document.getElementById('feature');
+    if (name === 'Negosyo') {
+      feature.innerHTML = `
+        <h3>🏪 Profile ng Negosyo</h3>
+        <p class="muted">Ilagay ang impormasyon ng iyong negosyo.</p>
 
+        <form id="businessForm">
+          <label>Pangalan ng negosyo *</label>
+          <input id="businessName" required maxlength="150"
+            placeholder="Halimbawa: Diaz Mini Store">
+
+          <label>Pangalan ng may-ari</label>
+          <input id="businessOwnerName" maxlength="150">
+
+          <label>Uri ng negosyo</label>
+          <input id="businessType" placeholder="Halimbawa: Sari-sari store">
+
+          <label>Address</label>
+          <input id="businessAddress" maxlength="250">
+
+          <label>Contact number</label>
+          <input id="businessContact" type="tel" maxlength="30">
+
+          <label>Email address</label>
+          <input id="businessEmail" type="email">
+
+          <button class="full" type="submit">
+            I-save ang Impormasyon ng Negosyo
+          </button>
+        </form>
+
+        <p id="businessMessage" role="status"></p>
+      `;
+
+      document.getElementById('businessForm')
+        .addEventListener('submit', saveBusinessProfile);
+
+      loadBusinessProfile();
+      return;
+    }
     if (name === 'Produkto') {
       feature.innerHTML = `
         <h3>📦 Pamamahala ng Produkto</h3>
