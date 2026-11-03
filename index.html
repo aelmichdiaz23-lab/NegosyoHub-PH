@@ -300,6 +300,52 @@
       return;
     }
 
+    
+    if (name === 'Utang') {
+      feature.innerHTML = `
+        <h3>📝 Pamamahala ng Utang</h3>
+        <p class="muted">Mag-record ng utang ng customer.</p>
+
+        <form id="debtForm">
+          <label>Pumili ng customer *</label>
+          <select id="debtCustomer" required>
+            <option value="">Kinukuha ang customers...</option>
+          </select>
+
+          <label>Halaga ng utang (₱) *</label>
+          <input id="debtAmount" type="number"
+            min="0.01" step="0.01" required>
+
+          <label>Notes (opsyonal)</label>
+          <input id="debtNotes" maxlength="500"
+            placeholder="Halimbawa: Utang na grocery">
+
+          <button class="full" type="submit">
+            I-save ang Utang
+          </button>
+        </form>
+
+        <p id="debtMessage" role="status"></p>
+
+        <hr>
+        <h3>Listahan ng mga Utang</h3>
+        <button type="button" onclick="loadDebts()">
+          I-refresh ang Listahan
+        </button>
+
+        <div id="debtList">
+          Kinukuha ang mga utang...
+        </div>
+      `;
+
+      document.getElementById('debtForm')
+        .addEventListener('submit', saveDebt);
+
+      loadDebtCustomers();
+      loadDebts();
+      return;
+    }
+
     if (name === 'Produkto') {
       feature.innerHTML = `
         <h3>📦 Pamamahala ng Produkto</h3>
