@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#087f5b">
+  <meta name="theme-color" content="#087f5b">st
   <title>NegosyoHub PH</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -559,15 +559,18 @@
         );
       }
 
-      // Itala ang pagbabago ng stock.
-      const { error: movementError } = await db
-        .from('stock_movements')
-        .insert({
-          business_id: businessId,
-          product_id: product.id,
-          quantity_change: -quantity,
-          reason: 'sale'
-        });
+const { data, error } = await db.rpc('process_sale_stock', {
+  p_business_id: businessId,
+  p_product_id: product.id,
+  p_quantity: quantity
+});
+
+if (error) {
+  console.error('Sale stock error:', error.message);
+  throw error;
+}
+
+console.log('Stock updated successfully:', data);
 
       document.getElementById('saleForm').reset();
 
