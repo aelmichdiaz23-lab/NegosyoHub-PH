@@ -1177,6 +1177,7 @@
     }
   }
 
+  
   async function loadDebts() {
     const list = document.getElementById('debtList');
     if (!list) return;
@@ -1247,7 +1248,8 @@
         remaining.style.fontWeight = 'bold';
 
         const status = document.createElement('p');
-        status.textContent = balance <= 0 ? '✅ FULLY PAID' : '⏳ MAY BALANSE PA';
+        status.textContent =
+          balance <= 0 ? '✅ FULLY PAID' : '⏳ MAY BALANSE PA';
 
         item.append(title, details, payment, remaining, status);
 
@@ -1338,53 +1340,14 @@
               await loadDebts();
 
             } catch (error) {
-              message.textContent = 'Hindi naitala ang bayad: ' + error.message;
+              message.textContent =
+                'Hindi naitala ang bayad: ' + error.message;
             } finally {
               payButton.disabled = false;
             }
           });
 
           item.append(paymentTitle, amountInput, notesInput, payButton);
-        }
-
-        list.appendChild(item);
-      });
-
-    } catch (error) {
-      list.textContent = 'Hindi makuha ang mga utang: ' + error.message;
-    }
-  }
-
-      records.forEach(debt => {
-        const item = document.createElement('div');
-        item.className = 'product';
-
-        const total = Number(debt.amount || 0);
-        const paid = Number(debt.amount_paid || 0);
-        const balance = Math.max(0, total - paid);
-
-        const title = document.createElement('strong');
-        title.textContent =
-          customerNames.get(debt.customer_id) || 'Hindi kilalang customer';
-
-        const details = document.createElement('p');
-        details.textContent =
-          'Petsa: ' + new Date(debt.created_at).toLocaleDateString('en-PH') +
-          ' | Kabuuang utang: ₱' + total.toFixed(2);
-
-        const payment = document.createElement('p');
-        payment.textContent = 'Naibayad: ₱' + paid.toFixed(2);
-
-        const remaining = document.createElement('p');
-        remaining.textContent = 'Natitirang utang: ₱' + balance.toFixed(2);
-        remaining.style.fontWeight = 'bold';
-
-        item.append(title, details, payment, remaining);
-
-        if (debt.notes) {
-          const note = document.createElement('p');
-          note.textContent = 'Notes: ' + debt.notes;
-          item.appendChild(note);
         }
 
         list.appendChild(item);
