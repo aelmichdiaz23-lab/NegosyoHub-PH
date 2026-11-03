@@ -895,6 +895,7 @@
           quantity: quantity,
           selling_price: sellingPrice,
           total_amount: totalAmount,
+          cost_price_at_sale: Number(product.cost_price || 0),
           sell_date: new Date().toISOString(),
         });
 
