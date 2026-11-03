@@ -1087,6 +1087,176 @@
     }
   }
 
+  
+  async function loadDebtCustomers() {
+    const select = document.getElementById('debtCustomer');
+    if (!select) return;
+
+    select.innerHTML = '<option value="">Kinukuha ang customers...</option>';
+
+    try {
+      const businessId = await getBusinessId();
+
+      const { data, error } = await db
+        .from('customers')
+        .select('id,name')
+        .eq('business_id', businessId)
+        .order('name');
+
+      if (error) throw error;
+
+      select.replaceChildren();
+
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = data.length
+        ? 'Pumili ng customer'
+        : 'Wala pang customer';
+
+      select.appendChild(placeholder);
+
+      (data || []).forEach(customer => {
+        const option = document.createElement('option');
+        option.value = customer.id;
+        option.textContent = customer.name;
+        select.appendChild(option);
+      });
+
+    } catch (error) {
+      select.innerHTML =
+        '<option value="">Hindi makuha ang customers</option>';
+
+      const message = document.getElementById('debtMessage');
+      if (message) message.textContent = error.message;
+    }
+  }
+
+  async function saveDebt(event) {
+    event.preventDefault();
+
+    const message = document.getElementById('debtMessage');
+    const button = document.querySelector('#debtForm button[type="submit"]');
+
+    button.disabled = true;
+    message.textContent = 'Sine-save ang utang...';
+
+    try {
+      const businessId = await getBusinessId();
+      const customerId = document.getElementById('debtCustomer').value;
+      const amount = Number(document.getElementById('debtAmount').value);
+      const notes = document.getElementById('debtNotes').value.trim();
+
+      if (!customerId) throw new Error('Pumili ng customer.');
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error('Ilagay ang wastong halaga ng utang.');
+      }
+
+      const { error } = await db
+        .from('debts')
+        .insert({
+          customer_id: customerId,
+          amount: amount,
+          amount_paid: 0,
+          notes: notes || null,
+          business_id: businessId
+        });
+
+      if (error) throw error;
+
+      message.textContent = 'Matagumpay na naitala ang utang!';
+
+      document.getElementById('debtForm').reset();
+
+      await loadDebts();
+
+    } catch (error) {
+      message.textContent = 'Hindi na-save: ' + error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function loadDebts() {
+    const list = document.getElementById('debtList');
+    if (!list) return;
+
+    list.textContent = 'Kinukuha ang mga utang...';
+
+    try {
+      const businessId = await getBusinessId();
+
+      const { data: debts, error: debtError } = await db
+        .from('debts')
+        .select('id,customer_id,amount,amount_paid,notes,created_at')
+        .eq('business_id', businessId)
+        .order('created_at', { ascending: false });
+
+      if (debtError) throw debtError;
+
+      const { data: customers, error: customerError } = await db
+        .from('customers')
+        .select('id,name')
+        .eq('business_id', businessId);
+
+      if (customerError) throw customerError;
+
+      const customerNames = new Map(
+        (customers || []).map(customer => [
+          customer.id,
+          customer.name
+        ])
+      );
+
+      list.replaceChildren();
+
+      const records = debts || [];
+
+      if (!records.length) {
+        list.textContent = 'Wala pang naitalang utang.';
+        return;
+      }
+
+      records.forEach(debt => {
+        const item = document.createElement('div');
+        item.className = 'product';
+
+        const total = Number(debt.amount || 0);
+        const paid = Number(debt.amount_paid || 0);
+        const balance = Math.max(0, total - paid);
+
+        const title = document.createElement('strong');
+        title.textContent =
+          customerNames.get(debt.customer_id) || 'Hindi kilalang customer';
+
+        const details = document.createElement('p');
+        details.textContent =
+          'Petsa: ' + new Date(debt.created_at).toLocaleDateString('en-PH') +
+          ' | Kabuuang utang: ₱' + total.toFixed(2);
+
+        const payment = document.createElement('p');
+        payment.textContent = 'Naibayad: ₱' + paid.toFixed(2);
+
+        const remaining = document.createElement('p');
+        remaining.textContent = 'Natitirang utang: ₱' + balance.toFixed(2);
+        remaining.style.fontWeight = 'bold';
+
+        item.append(title, details, payment, remaining);
+
+        if (debt.notes) {
+          const note = document.createElement('p');
+          note.textContent = 'Notes: ' + debt.notes;
+          item.appendChild(note);
+        }
+
+        list.appendChild(item);
+      });
+
+    } catch (error) {
+      list.textContent = 'Hindi makuha ang mga utang: ' + error.message;
+    }
+  }
+
   async function signOut() {
     const { error } = await db.auth.signOut();
 
