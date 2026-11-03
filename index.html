@@ -83,6 +83,7 @@
     <div class="menu">
       <button onclick="showFeature('Produkto')">📦 Produkto</button>
       <button onclick="showFeature('Stock')">📋 Stock Management</button>
+      <button onclick="showFeature('Low Stock')">⚠️ Low Stock Alert</button>
       <button onclick="showFeature('Benta')">💰 Benta</button>
       <button onclick="showFeature('Customers')">👥 Customers</button>
       <button onclick="showFeature('Utang')">📝 Utang</button>
@@ -399,6 +400,26 @@
       loadStockMovements();
       return;
     }
+
+    if (name === 'Low Stock') {
+      feature.innerHTML = `
+        <h3>⚠️ Low Stock Alert</h3>
+        <p class="muted">Mga produktong paubos na o wala nang stock.</p>
+
+        <button type="button" onclick="loadLowStockProducts()">
+          I-refresh ang Listahan
+        </button>
+
+        <p id="lowStockMessage"></p>
+        <div id="lowStockList">
+          Kinukuha ang inventory...
+        </div>
+      `;
+
+      loadLowStockProducts();
+      return;
+    }
+    
     if (name === 'Produkto') {
       feature.innerHTML = `
         <h3>📦 Pamamahala ng Produkto</h3>
