@@ -587,27 +587,61 @@
 
     if (name === 'Reports') {
       feature.innerHTML = `
-        <h3>📊 Sales Report</h3>
-        <p class="muted">Ulat ng mga naitalang benta ng iyong negosyo.</p>
+        <h3>📊 Professional Reports</h3>
+        <p class="muted">
+          Kumpletong ulat ng benta, kita, gastos, inventory at utang.
+        </p>
 
-        <label for="salesReportPeriod">Panahon ng ulat</label>
-        <select id="salesReportPeriod" onchange="loadSalesReport()">
-          <option value="all">Lahat ng benta</option>
-          <option value="today">Ngayong araw</option>
-          <option value="week">Ngayong linggo</option>
-          <option value="month">Ngayong buwan</option>
-        </select>
+        <div class="no-print">
+          <label>Uri ng Ulat *</label>
+          <select id="professionalReportType">
+            <option value="sales">Sales Report</option>
+            <option value="profit">Profit and Loss Report</option>
+            <option value="expenses">Expense Report</option>
+            <option value="inventory">Inventory Report</option>
+            <option value="debts">Outstanding Debt Report</option>
+          </select>
 
-        <button class="full" id="refreshSalesReport" type="button" onclick="loadSalesReport()">
-          I-refresh ang Sales Report
-        </button>
+          <label>Mula Petsa</label>
+          <input id="reportStartDate" type="date">
 
-        <p id="salesReportMessage" role="status" class="muted">Kinukuha ang sales report...</p>
-        <div id="salesReportSummary"></div>
-        <div id="salesReportList"></div>
+          <label>Hanggang Petsa</label>
+          <input id="reportEndDate" type="date">
+
+          <button class="full" type="button"
+            onclick="loadProfessionalReport()">
+            📊 Gumawa ng Ulat
+          </button>
+
+          <button class="full" type="button"
+            onclick="window.print()">
+            🖨️ I-print / Save as PDF
+          </button>
+        </div>
+
+        <div id="reportPrintArea">
+          <h2>NegosyoHub PH</h2>
+          <h3 id="professionalReportTitle">Business Report</h3>
+          <p id="professionalReportPeriod"></p>
+          <p id="professionalReportMessage" role="status">
+            Kinukuha ang report...
+          </p>
+
+          <div id="professionalReportSummary"></div>
+          <div id="professionalReportDetails"></div>
+        </div>
       `;
 
-      loadSalesReport();
+      const today = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Manila'
+      }).format(new Date());
+
+      document.getElementById('reportStartDate').value =
+        today.slice(0, 7) + '-01';
+
+      document.getElementById('reportEndDate').value = today;
+
+      loadProfessionalReport();
       return;
     }
 
