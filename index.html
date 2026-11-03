@@ -1410,7 +1410,166 @@
       list.textContent = 'Hindi makuha ang mga utang: ' + error.message;
     }
   }
+  async function loadStockProducts() {
+    const select = document.getElementById('stockProduct');
+    if (!select) return;
 
+    select.innerHTML = '<option value="">Kinukuha ang mga produkto...</option>';
+
+    try {
+      const businessId = await getBusinessId();
+
+      const { data, error } = await db
+        .from('products')
+        .select('id,name,stock_quantity')
+        .eq('business_id', businessId)
+        .order('name');
+
+      if (error) throw error;
+
+      select.replaceChildren();
+
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = data.length
+        ? 'Pumili ng produkto'
+        : 'Wala pang produkto';
+
+      select.appendChild(placeholder);
+
+      (data || []).forEach(product => {
+        const option = document.createElement('option');
+        option.value = product.id;
+        option.textContent =
+          product.name + ' — Stock: ' +
+          Number(product.stock_quantity || 0);
+        select.appendChild(option);
+      });
+
+    } catch (error) {
+      select.innerHTML =
+        '<option value="">Hindi makuha ang mga produkto</option>';
+
+      const message = document.getElementById('stockMessage');
+      if (message) message.textContent = error.message;
+    }
+  }
+
+  async function saveStockAdjustment(event) {
+    event.preventDefault();
+
+    const message = document.getElementById('stockMessage');
+    const button = document.querySelector('#stockForm button[type="submit"]');
+
+    button.disabled = true;
+    message.textContent = 'Sine-save ang pagbabago ng stock...';
+
+    try {
+      const productId = document.getElementById('stockProduct').value;
+      const direction = document.getElementById('stockDirection').value;
+      const amount = Number(document.getElementById('stockAmount').value);
+      const reason = document.getElementById('stockReason').value.trim();
+
+      if (!productId) throw new Error('Pumili ng produkto.');
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error('Ilagay ang wastong dami.');
+      }
+
+      if (!reason) throw new Error('Ilagay ang dahilan ng pagbabago ng stock.');
+
+      const quantityChange = direction === 'out' ? -amount : amount;
+
+      const { data, error } = await db.rpc('adjust_product_stock', {
+        p_product_id: productId,
+        p_quantity_change: quantityChange,
+        p_reason: reason
+      });
+
+      if (error) throw error;
+
+      message.textContent =
+        'Matagumpay na na-update ang stock! Bagong stock: ' +
+        Number(data.stock_after).toLocaleString('en-PH');
+
+      document.getElementById('stockForm').reset();
+
+      await loadStockProducts();
+      await loadStockMovements();
+
+    } catch (error) {
+      message.textContent = 'Hindi na-save: ' + error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function loadStockMovements() {
+    const list = document.getElementById('stockHistory');
+    if (!list) return;
+
+    list.textContent = 'Kinukuha ang stock history...';
+
+    try {
+      const businessId = await getBusinessId();
+
+      const { data: movements, error } = await db
+        .from('stock_movements')
+        .select('id,product_id,quantity_change,reason,created_at')
+        .eq('business_id', businessId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const { data: products, error: productError } = await db
+        .from('products')
+        .select('id,name')
+        .eq('business_id', businessId);
+
+      if (productError) throw productError;
+
+      const productNames = new Map(
+        (products || []).map(product => [product.id, product.name])
+      );
+
+      list.replaceChildren();
+
+      if (!movements || movements.length === 0) {
+        list.textContent = 'Wala pang stock movement.';
+        return;
+      }
+
+      movements.forEach(movement => {
+        const item = document.createElement('div');
+        item.className = 'product';
+
+        const title = document.createElement('strong');
+        title.textContent =
+          productNames.get(movement.product_id) || 'Hindi kilalang produkto';
+
+        const quantity = Number(movement.quantity_change);
+        const details = document.createElement('p');
+        details.textContent =
+          (quantity > 0 ? 'Stock-in: +' : 'Stock-out: ') +
+          Math.abs(quantity).toLocaleString('en-PH');
+
+        const date = document.createElement('p');
+        date.textContent =
+          'Petsa: ' +
+          new Date(movement.created_at).toLocaleString('en-PH');
+
+        const reason = document.createElement('p');
+        reason.textContent = 'Dahilan: ' + movement.reason;
+
+        item.append(title, details, date, reason);
+        list.appendChild(item);
+      });
+
+    } catch (error) {
+      list.textContent = 'Hindi makuha ang stock history: ' + error.message;
+    }
+  }
+  
   async function signOut() {
     const { error } = await db.auth.signOut();
 
