@@ -1898,6 +1898,186 @@
     }
   }
 
+  async function loadDashboardAnalytics() {
+    const message = document.getElementById('analyticsMessage');
+    const dashboard = document.getElementById('analyticsDashboard');
+
+    if (!dashboard) return;
+
+    message.textContent = 'Kinukuha ang business analytics...';
+    dashboard.replaceChildren();
+
+    try {
+      const businessId = await getBusinessId();
+
+      const results = await Promise.all([
+        db.from('sales')
+          .select('id,product_id,quantity,total_amount,cost_price_at_sale,sell_date')
+          .eq('business_id', businessId),
+
+        db.from('products')
+          .select('id,name,cost_price,stock_quantity')
+          .eq('business_id', businessId),
+
+        db.from('expenses')
+          .select('amount,expense_date')
+          .eq('business_id', businessId),
+
+        db.from('debts')
+          .select('amount,amount_paid')
+          .eq('business_id', businessId)
+      ]);
+
+      const [salesResult, productsResult, expensesResult, debtsResult] = results;
+
+      if (salesResult.error) throw salesResult.error;
+      if (productsResult.error) throw productsResult.error;
+      if (expensesResult.error) throw expensesResult.error;
+      if (debtsResult.error) throw debtsResult.error;
+
+      const sales = salesResult.data || [];
+      const products = productsResult.data || [];
+      const expenses = expensesResult.data || [];
+      const debts = debtsResult.data || [];
+
+      const productMap = new Map(
+        products.map(p => [p.id, p])
+      );
+
+      let totalSales = 0;
+      let totalCost = 0;
+      let estimatedProfit = 0;
+      let estimatedRecords = 0;
+      let todaySales = 0;
+      let monthlySales = 0;
+
+      const dateParts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Manila',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).formatToParts(new Date());
+
+      const dateValues = Object.fromEntries(
+        dateParts.map(p => [p.type, p.value])
+      );
+
+      const today = `${dateValues.year}-${dateValues.month}-${dateValues.day}`;
+      const month = today.slice(0, 7);
+
+      sales.forEach(sale => {
+        const quantity = Number(sale.quantity || 0);
+        const amount = Number(sale.total_amount || 0);
+
+        totalSales += amount;
+
+        if (sale.sell_date === today) {
+          todaySales += amount;
+        }
+
+        if (sale.sell_date && sale.sell_date.startsWith(month)) {
+          monthlySales += amount;
+        }
+
+        const product = productMap.get(sale.product_id);
+
+        let unitCost;
+
+        if (sale.cost_price_at_sale !== null &&
+            sale.cost_price_at_sale !== undefined) {
+          unitCost = Number(sale.cost_price_at_sale);
+        } else {
+          unitCost = Number(product?.cost_price || 0);
+          estimatedRecords++;
+        }
+
+        const cost = unitCost * quantity;
+
+        totalCost += cost;
+        estimatedProfit += amount - cost;
+      });
+
+      const totalExpenses = expenses.reduce(
+        (sum, e) => sum + Number(e.amount || 0), 0
+      );
+
+      const todayExpenses = expenses
+        .filter(e => e.expense_date === today)
+        .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+      const monthlyExpenses = expenses
+        .filter(e => e.expense_date && e.expense_date.startsWith(month))
+        .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+      const inventoryValue = products.reduce(
+        (sum, p) =>
+          sum + Number(p.stock_quantity || 0) *
+          Number(p.cost_price || 0),
+        0
+      );
+
+      const outstandingDebts = debts.reduce(
+        (sum, d) =>
+          sum + Math.max(
+            0,
+            Number(d.amount || 0) - Number(d.amount_paid || 0)
+          ),
+        0
+      );
+
+      const estimatedNetProfit = estimatedProfit - totalExpenses;
+
+      const money = value =>
+        '₱' + Number(value).toLocaleString('en-PH', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+
+      const metrics = [
+        ['Kabuuang Benta', money(totalSales), 'Lahat ng sales records'],
+        ['Bilang ng Transaksyon', sales.length, 'Kabuuang sales records'],
+        ['Benta Ngayong Araw', money(todaySales), today],
+        ['Benta Ngayong Buwan', money(monthlySales), month],
+        ['Estimated Product Cost', money(totalCost), 'Puhunan ng mga nabentang produkto'],
+        ['Estimated Gross Profit', money(estimatedProfit), 'Benta minus product cost'],
+        ['Kabuuang Gastos', money(totalExpenses), expenses.length + ' expense records'],
+        ['Gastos Ngayong Araw', money(todayExpenses), 'Expenses today'],
+        ['Gastos Ngayong Buwan', money(monthlyExpenses), 'Expenses this month'],
+        ['Estimated Net Profit', money(estimatedNetProfit), 'Gross profit minus expenses'],
+        ['Inventory Value', money(inventoryValue), 'Kasalukuyang stock at puhunan'],
+        ['Outstanding Debts', money(outstandingDebts), debts.length + ' debt records']
+      ];
+
+      metrics.forEach(metric => {
+        const card = document.createElement('div');
+        card.className = 'product';
+
+        const title = document.createElement('strong');
+        title.textContent = metric[0];
+
+        const value = document.createElement('h3');
+        value.textContent = metric[1];
+
+        const detail = document.createElement('p');
+        detail.className = 'muted';
+        detail.textContent = metric[2];
+
+        card.append(title, value, detail);
+        dashboard.appendChild(card);
+      });
+
+      message.textContent =
+        'Matagumpay na nakuha ang Dashboard Analytics! ' +
+        (estimatedRecords
+          ? estimatedRecords + ' sales record(s) ang gumagamit ng kasalukuyang product cost bilang estimate.'
+          : 'Lahat ng sales ay may recorded historical cost.');
+
+    } catch (error) {
+      message.textContent =
+        'Hindi makuha ang Dashboard Analytics: ' + error.message;
+    }
+  }
+
   async function signOut() {
     const { error } = await db.auth.signOut();
 
