@@ -781,7 +781,81 @@
       button.disabled = false;
     }
   }
+  async function loadBusinessProfile() {
+    const message = document.getElementById('businessMessage');
+    if (!message) return;
 
+    message.textContent = 'Kinukuha ang impormasyon ng negosyo...';
+
+    try {
+      const businessId = await getBusinessId();
+
+      const { data, error } = await db
+        .from('businesses')
+        .select('name,owner_name,business_type,address,contact_number,email')
+        .eq('id', businessId)
+        .single();
+
+      if (error) throw error;
+
+      document.getElementById('businessName').value = data.name || '';
+      document.getElementById('businessOwnerName').value = data.owner_name || '';
+      document.getElementById('businessType').value = data.business_type || '';
+      document.getElementById('businessAddress').value = data.address || '';
+      document.getElementById('businessContact').value = data.contact_number || '';
+      document.getElementById('businessEmail').value = data.email || '';
+
+      message.textContent = 'Matagumpay na nakuha ang impormasyon ng negosyo!';
+
+    } catch (error) {
+      message.textContent = 'Hindi makuha: ' + error.message;
+    }
+  }
+
+  async function saveBusinessProfile(event) {
+    event.preventDefault();
+
+    const message = document.getElementById('businessMessage');
+    const button = document.querySelector('#businessForm button[type="submit"]');
+
+    button.disabled = true;
+    message.textContent = 'Sine-save ang impormasyon ng negosyo...';
+
+    try {
+      const businessId = await getBusinessId();
+
+      const business = {
+        name: document.getElementById('businessName').value.trim(),
+        owner_name: document.getElementById('businessOwnerName').value.trim(),
+        business_type: document.getElementById('businessType').value.trim(),
+        address: document.getElementById('businessAddress').value.trim(),
+        contact_number: document.getElementById('businessContact').value.trim(),
+        email: document.getElementById('businessEmail').value.trim()
+      };
+
+      if (!business.name) {
+        throw new Error('Ilagay ang pangalan ng negosyo.');
+      }
+
+      const { data, error } = await db
+        .from('businesses')
+        .update(business)
+        .eq('id', businessId)
+        .select('id')
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error('Walang na-update na record. Suriin ang database permissions.');
+
+      message.textContent = 'Matagumpay na na-save ang impormasyon ng negosyo!';
+
+    } catch (error) {
+      message.textContent = 'Hindi na-save: ' + error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+  
   async function signOut() {
     const { error } = await db.auth.signOut();
 
