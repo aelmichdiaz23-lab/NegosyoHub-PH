@@ -902,7 +902,145 @@
       button.disabled = false;
     }
   }
+
   
+  async function loadCustomers() {
+    const list = document.getElementById('customerList');
+    if (!list) return;
+
+    list.textContent = 'Kinukuha ang mga customer...';
+
+    try {
+      const businessId = await getBusinessId();
+
+      const { data, error } = await db
+        .from('customers')
+        .select('id,name,phone,address_text,created_at')
+        .eq('business_id', businessId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      list.replaceChildren();
+
+      const customers = data || [];
+
+      if (!customers.length) {
+        list.textContent = 'Wala pang nakatalang customer.';
+        return;
+      }
+
+      customers.forEach(customer => {
+        const item = document.createElement('div');
+        item.className = 'product';
+
+        const title = document.createElement('strong');
+        title.textContent = customer.name;
+        item.appendChild(title);
+
+        if (customer.phone) {
+          const phone = document.createElement('p');
+          phone.textContent = 'Contact: ' + customer.phone;
+          item.appendChild(phone);
+        }
+
+        if (customer.address_text) {
+          const address = document.createElement('p');
+          address.textContent = 'Address: ' + customer.address_text;
+          item.appendChild(address);
+        }
+
+        const editButton = document.createElement('button');
+        editButton.type = 'button';
+        editButton.textContent = 'I-edit ang Customer';
+
+        editButton.addEventListener('click', () => {
+          document.getElementById('customerId').value = customer.id;
+          document.getElementById('customerName').value = customer.name || '';
+          document.getElementById('customerPhone').value = customer.phone || '';
+          document.getElementById('customerAddress').value = customer.address_text || '';
+
+          document.getElementById('saveCustomer').textContent =
+            'I-update ang Customer';
+
+          document.getElementById('customerMessage').textContent =
+            'Ini-edit ang impormasyon ni ' + customer.name;
+
+          document.getElementById('customerName').focus();
+        });
+
+        item.appendChild(editButton);
+        list.appendChild(item);
+      });
+
+    } catch (error) {
+      list.textContent = 'Hindi makuha ang customers: ' + error.message;
+    }
+  }
+
+  async function saveCustomer(event) {
+    event.preventDefault();
+
+    const message = document.getElementById('customerMessage');
+    const button = document.getElementById('saveCustomer');
+
+    button.disabled = true;
+    message.textContent = 'Sine-save ang customer...';
+
+    try {
+      const businessId = await getBusinessId();
+      const customerId = document.getElementById('customerId').value;
+
+      const customer = {
+        name: document.getElementById('customerName').value.trim(),
+        phone: document.getElementById('customerPhone').value.trim() || null,
+        address_text: document.getElementById('customerAddress').value.trim() || null
+      };
+
+      if (!customer.name) {
+        throw new Error('Ilagay ang pangalan ng customer.');
+      }
+
+      if (customerId) {
+        const { data, error } = await db
+          .from('customers')
+          .update(customer)
+          .eq('id', customerId)
+          .eq('business_id', businessId)
+          .select('id')
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!data) throw new Error('Hindi nakita ang customer na ia-update.');
+
+        message.textContent = 'Matagumpay na na-update ang customer!';
+
+      } else {
+        const { error } = await db
+          .from('customers')
+          .insert({
+            ...customer,
+            business_id: businessId
+          });
+
+        if (error) throw error;
+
+        message.textContent = 'Matagumpay na naidagdag ang customer!';
+      }
+
+      document.getElementById('customerForm').reset();
+      document.getElementById('customerId').value = '';
+      button.textContent = 'I-save ang Customer';
+
+      await loadCustomers();
+
+    } catch (error) {
+      message.textContent = 'Hindi na-save: ' + error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   async function signOut() {
     const { error } = await db.auth.signOut();
 
