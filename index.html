@@ -944,9 +944,9 @@
           item.appendChild(phone);
         }
 
-        if (customer.address_text) {
+        if (customer.address) {
           const address = document.createElement('p');
-          address.textContent = 'Address: ' + customer.address_text;
+          address.textContent = 'Address: ' + customer.address;
           item.appendChild(address);
         }
 
