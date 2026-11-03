@@ -59,6 +59,102 @@
     }
     .muted { color: #666; font-size: 14px; }
     #message, #productMessage, #saleMessage { overflow-wrap: anywhere; }
+    
+    /* PROFESSIONAL PRINT LAYOUT */
+    @media print {
+      @page {
+        size: A4;
+        margin: 12mm;
+      }
+
+      body {
+        background: #fff !important;
+        color: #000 !important;
+      }
+
+      /* Itago ang website header */
+      body > header {
+        display: none !important;
+      }
+
+      /* Itago ang login at dashboard navigation */
+      #authSection,
+      #dashboard > h2,
+      #dashboard > #welcome,
+      #dashboard > .menu,
+      #dashboard > button,
+      .no-print {
+        display: none !important;
+      }
+
+      /* Gawing malinis ang report page */
+      main {
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      #dashboard {
+        display: block !important;
+        background: #fff !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      #feature {
+        display: block !important;
+        background: #fff !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+
+      /* Report lamang ang ipakita */
+      #reportPrintArea {
+        display: block !important;
+        width: 100% !important;
+        color: #000 !important;
+      }
+
+      #reportPrintArea h2,
+      #reportPrintArea h3 {
+        color: #000 !important;
+      }
+
+      #reportPrintArea .product {
+        border: 1px solid #ccc !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      #reportPrintArea table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        font-size: 10pt !important;
+      }
+
+      #reportPrintArea thead {
+        display: table-header-group;
+      }
+
+      #reportPrintArea tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      #reportPrintArea th,
+      #reportPrintArea td {
+        border: 1px solid #999 !important;
+        padding: 6px !important;
+        color: #000 !important;
+      }
+    }
+
   </style>
 </head>
 <body>
