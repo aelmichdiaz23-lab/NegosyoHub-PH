@@ -1728,6 +1728,153 @@
     }
   }
 
+  async function saveExpense(event) {
+    event.preventDefault();
+
+    const message = document.getElementById('expenseMessage');
+    const button = document.querySelector(
+      '#expenseForm button[type="submit"]'
+    );
+
+    button.disabled = true;
+    message.textContent = 'Sine-save ang gastos...';
+
+    try {
+      const businessId = await getBusinessId();
+
+      const category =
+        document.getElementById('expenseCategory').value;
+
+      const description =
+        document.getElementById('expenseDescription').value.trim();
+
+      const amount =
+        Number(document.getElementById('expenseAmount').value);
+
+      const expenseDate =
+        document.getElementById('expenseDate').value;
+
+      if (!category) throw new Error('Pumili ng uri ng gastos.');
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        throw new Error('Ilagay ang wastong halaga ng gastos.');
+      }
+
+      if (!expenseDate) {
+        throw new Error('Pumili ng petsa ng gastos.');
+      }
+
+      const { error } = await db
+        .from('expenses')
+        .insert({
+          business_id: businessId,
+          category: category,
+          description: description || null,
+          amount: amount,
+          expense_date: expenseDate
+        });
+
+      if (error) throw error;
+
+      message.textContent = 'Matagumpay na naitala ang gastos!';
+
+      document.getElementById('expenseForm').reset();
+
+      document.getElementById('expenseDate').value =
+        new Date().toLocaleDateString('en-CA');
+
+      await loadExpenses();
+
+    } catch (error) {
+      message.textContent = 'Hindi na-save: ' + error.message;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function loadExpenses() {
+    const list = document.getElementById('expenseList');
+    if (!list) return;
+
+    list.textContent = 'Kinukuha ang mga gastos...';
+
+    try {
+      const businessId = await getBusinessId();
+
+      const { data, error } = await db
+        .from('expenses')
+        .select('id,category,description,amount,expense_date,created_at')
+        .eq('business_id', businessId)
+        .order('expense_date', { ascending: false })
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      list.replaceChildren();
+
+      const expenses = data || [];
+
+      if (!expenses.length) {
+        list.textContent = 'Wala pang naitalang gastos.';
+        return;
+      }
+
+      const totalExpenses = expenses.reduce(
+        (sum, expense) => sum + Number(expense.amount || 0),
+        0
+      );
+
+      const summary = document.createElement('div');
+      summary.className = 'product';
+
+      const summaryTitle = document.createElement('strong');
+      summaryTitle.textContent = 'Kabuuang Gastos';
+
+      const summaryAmount = document.createElement('h3');
+      summaryAmount.textContent =
+        '₱' + totalExpenses.toLocaleString('en-PH', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+
+      summary.append(summaryTitle, summaryAmount);
+      list.appendChild(summary);
+
+      expenses.forEach(expense => {
+        const item = document.createElement('div');
+        item.className = 'product';
+
+        const title = document.createElement('strong');
+        title.textContent = expense.category;
+
+        const amount = document.createElement('h3');
+        amount.textContent =
+          '₱' + Number(expense.amount).toFixed(2);
+
+        const date = document.createElement('p');
+        date.textContent =
+          'Petsa: ' +
+          new Date(expense.expense_date + 'T00:00:00')
+            .toLocaleDateString('en-PH');
+
+        item.append(title, amount, date);
+
+        if (expense.description) {
+          const description = document.createElement('p');
+          description.textContent =
+            'Detalye: ' + expense.description;
+          item.appendChild(description);
+        }
+
+        list.appendChild(item);
+      });
+
+    } catch (error) {
+      list.textContent =
+        'Hindi makuha ang mga gastos: ' + error.message;
+    }
+  }
+
   async function signOut() {
     const { error } = await db.auth.signOut();
 
