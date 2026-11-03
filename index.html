@@ -915,7 +915,7 @@
 
       const { data, error } = await db
         .from('customers')
-        .select('id,name,phone,address_text,created_at')
+        .select('id,name,phone,address,created_at')
         .eq('business_id', businessId)
         .order('created_at', { ascending: false });
 
