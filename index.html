@@ -296,8 +296,171 @@
       return;
     }
 
+    if (name === 'Reports') {
+      feature.innerHTML = `
+        <h3>📊 Sales Report</h3>
+        <p class="muted">Ulat ng mga naitalang benta ng iyong negosyo.</p>
+
+        <label for="salesReportPeriod">Panahon ng ulat</label>
+        <select id="salesReportPeriod" onchange="loadSalesReport()">
+          <option value="all">Lahat ng benta</option>
+          <option value="today">Ngayong araw</option>
+          <option value="week">Ngayong linggo</option>
+          <option value="month">Ngayong buwan</option>
+        </select>
+
+        <button class="full" id="refreshSalesReport" type="button" onclick="loadSalesReport()">
+          I-refresh ang Sales Report
+        </button>
+
+        <p id="salesReportMessage" role="status" class="muted">Kinukuha ang sales report...</p>
+        <div id="salesReportSummary"></div>
+        <div id="salesReportList"></div>
+      `;
+
+      loadSalesReport();
+      return;
+    }
+
     feature.textContent =
       name + ': Ihahanda pa natin ang feature na ito.';
+  }
+
+  async function loadSalesReport() {
+    const message = document.getElementById('salesReportMessage');
+    const summary = document.getElementById('salesReportSummary');
+    const list = document.getElementById('salesReportList');
+    const periodSelect = document.getElementById('salesReportPeriod');
+    const refreshButton = document.getElementById('refreshSalesReport');
+
+    if (!message || !summary || !list) return;
+
+    if (refreshButton) refreshButton.disabled = true;
+    message.textContent = 'Kinukuha ang sales report...';
+    summary.replaceChildren();
+    list.replaceChildren();
+
+    try {
+      const businessId = await getBusinessId();
+
+      const { data: sales, error: salesError } = await db
+        .from('sales')
+        .select('product_id,quantity,selling_price,total_amount,sell_date')
+        .eq('business_id', businessId)
+        .order('sell_date', { ascending: false });
+
+      if (salesError) throw salesError;
+
+      const { data: products, error: productsError } = await db
+        .from('products')
+        .select('id,name')
+        .eq('business_id', businessId);
+
+      if (productsError) throw productsError;
+
+      const productNames = new Map(
+        (products || []).map(product => [product.id, product.name])
+      );
+
+      const allRecords = sales || [];
+      const period = periodSelect ? periodSelect.value : 'all';
+      let startDate = null;
+
+      if (period !== 'all') {
+        const now = new Date();
+        startDate = new Date(now);
+        startDate.setHours(0, 0, 0, 0);
+
+        if (period === 'week') {
+          const daysSinceMonday = (now.getDay() + 6) % 7;
+          startDate.setDate(now.getDate() - daysSinceMonday);
+        } else if (period === 'month') {
+          startDate.setDate(1);
+        }
+      }
+
+      const records = allRecords.filter(sale => {
+        if (!startDate) return true;
+        if (!sale.sell_date) return false;
+        const saleDate = new Date(sale.sell_date);
+        return !Number.isNaN(saleDate.getTime()) && saleDate >= startDate;
+      });
+
+      const totalSales = records.reduce(
+        (sum, sale) => sum + Number(sale.total_amount || 0), 0
+      );
+      const totalItems = records.reduce(
+        (sum, sale) => sum + Number(sale.quantity || 0), 0
+      );
+
+      const stats = [
+        ['Kabuuang Benta', '₱' + totalSales.toFixed(2)],
+        ['Bilang ng Transaksyon', String(records.length)],
+        ['Kabuuang Produktong Nabenta', String(totalItems)]
+      ];
+
+      stats.forEach(([label, value]) => {
+        const card = document.createElement('div');
+        card.className = 'product';
+
+        const title = document.createElement('strong');
+        title.textContent = label;
+
+        const detail = document.createElement('p');
+        detail.textContent = value;
+
+        card.append(title, detail);
+        summary.appendChild(card);
+      });
+
+      const heading = document.createElement('h3');
+      heading.textContent = 'Mga Detalye ng Benta';
+      list.appendChild(heading);
+
+      if (records.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'muted';
+        empty.textContent = 'Wala pang naitalang benta para sa napiling panahon.';
+        list.appendChild(empty);
+      } else {
+        records.forEach(sale => {
+          const card = document.createElement('div');
+          card.className = 'product';
+
+          const product = document.createElement('strong');
+          product.textContent =
+            productNames.get(sale.product_id) || 'Hindi matukoy na produkto';
+
+          const date = document.createElement('p');
+          const parsedDate = sale.sell_date ? new Date(sale.sell_date) : null;
+          date.textContent = 'Petsa: ' + (
+            parsedDate && !Number.isNaN(parsedDate.getTime())
+              ? parsedDate.toLocaleString('fil-PH')
+              : 'Walang petsa'
+          );
+
+          const details = document.createElement('p');
+          details.textContent =
+            'Dami: ' + Number(sale.quantity || 0) +
+            ' | Presyo bawat isa: ₱' +
+            Number(sale.selling_price || 0).toFixed(2);
+
+          const amount = document.createElement('p');
+          amount.textContent =
+            'Kabuuang halaga: ₱' +
+            Number(sale.total_amount || 0).toFixed(2);
+
+          card.append(product, date, details, amount);
+          list.appendChild(card);
+        });
+      }
+
+      message.textContent = 'Matagumpay na nakuha ang Sales Report!';
+    } catch (error) {
+      message.textContent = 'Hindi makuha ang Sales Report: ' + error.message;
+    } finally {
+      if (refreshButton) refreshButton.disabled = false;
+    }
   }
 
   async function saveProduct(event) {
@@ -559,31 +722,15 @@
         );
       }
 
-const { data, error } = await db.rpc('process_sale_stock', {
-  p_business_id: businessId,
-  p_product_id: product.id,
-  p_quantity: quantity
-});
-
-if (error) {
-  console.error('Sale stock error:', error.message);
-  throw error;
-}
-
-console.log('Stock updated successfully:', data);
+// Hindi kailangan ang process_sale_stock RPC dito dahil na-update na
+      // ang stock sa itaas sa pamamagitan ng products.update().
 
       document.getElementById('saleForm').reset();
 
-      if (movementError) {
-        message.textContent =
-          'Na-save ang benta at nabawasan ang stock, pero hindi naitala ' +
-          'ang stock movement: ' + movementError.message;
-      } else {
-        message.textContent =
-          'Matagumpay ang benta! Kabuuan: ₱' +
-          totalAmount.toFixed(2) +
-          '. Nabawasan ang stock ng ' + quantity + '.';
-      }
+      message.textContent =
+        'Matagumpay ang benta! Kabuuan: ₱' +
+        totalAmount.toFixed(2) +
+        '. Nabawasan ang stock ng ' + quantity + '.';
 
       await loadSaleProducts();
       updateSalePreview();
