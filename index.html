@@ -253,6 +253,53 @@
       loadBusinessProfile();
       return;
     }
+
+    
+    if (name === 'Customers') {
+      feature.innerHTML = `
+        <h3>👥 Pamamahala ng Customers</h3>
+        <p class="muted">Magdagdag at mamahala ng mga customer.</p>
+
+        <form id="customerForm">
+          <input type="hidden" id="customerId">
+
+          <label>Pangalan ng customer *</label>
+          <input id="customerName" required maxlength="150"
+                 placeholder="Pangalan ng customer">
+
+          <label>Contact number</label>
+          <input id="customerPhone" type="tel" maxlength="30"
+                 placeholder="09XXXXXXXXX">
+
+          <label>Address</label>
+          <input id="customerAddress" maxlength="250"
+                 placeholder="Address ng customer">
+
+          <button class="full" id="saveCustomer" type="submit">
+            I-save ang Customer
+          </button>
+        </form>
+
+        <p id="customerMessage" role="status"></p>
+
+        <hr>
+        <h3>Listahan ng Customers</h3>
+        <button type="button" onclick="loadCustomers()">
+          I-refresh ang Listahan
+        </button>
+
+        <div id="customerList">
+          Kinukuha ang mga customer...
+        </div>
+      `;
+
+      document.getElementById('customerForm')
+        .addEventListener('submit', saveCustomer);
+
+      loadCustomers();
+      return;
+    }
+
     if (name === 'Produkto') {
       feature.innerHTML = `
         <h3>📦 Pamamahala ng Produkto</h3>
