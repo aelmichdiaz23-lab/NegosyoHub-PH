@@ -347,6 +347,58 @@
       return;
     }
 
+        if (name === 'Stock') {
+      feature.innerHTML = `
+        <h3>📦 Stock Management</h3>
+        <p class="muted">Magdagdag o magbawas ng stock at tingnan ang history.</p>
+
+        <form id="stockForm">
+          <label>Produkto *</label>
+          <select id="stockProduct" required>
+            <option value="">Kinukuha ang mga produkto...</option>
+          </select>
+
+          <label>Uri ng galaw ng stock *</label>
+          <select id="stockDirection" required>
+            <option value="in">Stock-in — Dagdag stock</option>
+            <option value="out">Stock-out — Bawas stock</option>
+          </select>
+
+          <label>Dami *</label>
+          <input id="stockAmount" type="number"
+            min="0.01" step="0.01" required
+            placeholder="Ilagay ang dami">
+
+          <label>Dahilan *</label>
+          <input id="stockReason" type="text"
+            maxlength="200" required
+            placeholder="Hal. Bumili ng bagong stock">
+
+          <button class="full" type="submit">
+            I-save ang Stock Movement
+          </button>
+        </form>
+
+        <p id="stockMessage" role="status"></p>
+
+        <hr>
+        <h3>History ng Stock</h3>
+        <button type="button" onclick="loadStockMovements()">
+          I-refresh ang History
+        </button>
+
+        <div id="stockHistory">
+          Kinukuha ang history...
+        </div>
+      `;
+
+      document.getElementById('stockForm')
+        .addEventListener('submit', saveStockAdjustment);
+
+      loadStockProducts();
+      loadStockMovements();
+      return;
+    }
     if (name === 'Produkto') {
       feature.innerHTML = `
         <h3>📦 Pamamahala ng Produkto</h3>
