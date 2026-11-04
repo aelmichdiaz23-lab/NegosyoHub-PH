@@ -1073,7 +1073,6 @@ try {
 } catch (error) {
   message.textContent = 'Hindi mahanap ang produkto: ' + error.message;
 }
-        message.textContent = 'Barcode nabasa: ' + decodedText;
 
         try {
           await barcodeScanner.stop();
