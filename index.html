@@ -280,6 +280,7 @@ let autoBackupInProgress = false;
     const { data, error } = await db.auth.signInWithPassword({
       email,
       password
+      
     });
 
     if (error) {
@@ -2946,6 +2947,155 @@ let autoBackupInProgress = false;
     }
   }
 
+async function uploadAutomaticBusinessBackup() {
+  if (autoBackupInProgress) return;
+
+  autoBackupInProgress = true;
+
+  const status = document.getElementById('autoBackupStatus');
+
+  try {
+    if (status) {
+      status.textContent = 'Gumagawa ng automatic cloud backup...';
+    }
+
+    const businessId = await getBusinessId();
+
+    const { data: business, error: businessError } = await db
+      .from('businesses')
+      .select('*')
+      .eq('id', businessId)
+      .single();
+
+    if (businessError) throw businessError;
+
+    const tables = [
+      'products',
+      'customers',
+      'sales',
+      'debts',
+      'debt_payments',
+      'stock_movements',
+      'expenses'
+    ];
+
+    const records = {};
+
+    for (const table of tables) {
+      let allRows = [];
+      let offset = 0;
+      const pageSize = 500;
+
+      while (true) {
+        const { data, error } = await db
+          .from(table)
+          .select('*')
+          .eq('business_id', businessId)
+          .order('id', { ascending: true })
+          .range(offset, offset + pageSize - 1);
+
+        if (error) throw error;
+
+        const rows = data || [];
+        allRows = allRows.concat(rows);
+
+        if (rows.length < pageSize) break;
+
+        offset += pageSize;
+      }
+
+      records[table] = allRows;
+    }
+
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(new Date());
+
+    const getPart = type =>
+      parts.find(part => part.type === type).value;
+
+    const backupDate =
+      getPart('year') + '-' +
+      getPart('month') + '-' +
+      getPart('day');
+
+    const backup = {
+      app_name: 'NegosyoHub PH',
+      backup_version: 1,
+      backup_type: 'automatic_daily',
+      exported_at: new Date().toISOString(),
+      business: business,
+      records: records,
+      record_counts: Object.fromEntries(
+        Object.entries(records).map(([name, rows]) => [
+          name,
+          rows.length
+        ])
+      )
+    };
+
+    const json = JSON.stringify(backup, null, 2);
+
+    const blob = new Blob(
+      [json],
+      { type: 'application/json;charset=utf-8' }
+    );
+
+    if (blob.size > 50 * 1024 * 1024) {
+      throw new Error('Lumampas sa 50 MB ang backup file.');
+    }
+
+    const filePath =
+      businessId + '/daily-' + backupDate + '.json';
+
+    const { error: uploadError } = await db
+      .storage
+      .from('business-backups')
+      .upload(filePath, blob, {
+        cacheControl: '0',
+        contentType: 'application/json',
+        upsert: true
+      });
+
+    if (uploadError) throw uploadError;
+
+    if (status) {
+      const totalRecords = Object.values(records)
+        .reduce((sum, rows) => sum + rows.length, 0);
+
+      status.textContent =
+        '✅ Automatic cloud backup successful! ' +
+        totalRecords + ' records. Petsa: ' + backupDate;
+    }
+
+  } catch (error) {
+    if (status) {
+      status.textContent =
+        'Automatic backup failed: ' + error.message;
+    }
+
+  } finally {
+    autoBackupInProgress = false;
+  }
+}
+
+
+function startAutomaticBackup() {
+  if (autoBackupTimer) {
+    clearInterval(autoBackupTimer);
+  }
+
+  uploadAutomaticBusinessBackup();
+
+  autoBackupTimer = setInterval(
+    uploadAutomaticBusinessBackup,
+    60 * 60 * 1000
+  );
+}
+
   async function signOut() {
     const { error } = await db.auth.signOut();
 
@@ -2963,11 +3113,13 @@ let autoBackupInProgress = false;
     document.getElementById('message').textContent = 'Naka-logout ka na.';
   }
 
-  async function checkSession() {
+    async function checkSession() {
     const { data, error } = await db.auth.getSession();
 
     if (!error && data.session) {
       await showDashboard(data.session.user);
+
+      startAutomaticBackup();
     }
   }
 
