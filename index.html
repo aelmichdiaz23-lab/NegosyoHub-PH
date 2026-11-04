@@ -289,6 +289,8 @@ let autoBackupInProgress = false;
     }
 
     await showDashboard(data.user);
+    
+    startAutomaticBackup();
   }
 
   async function showDashboard(user) {
