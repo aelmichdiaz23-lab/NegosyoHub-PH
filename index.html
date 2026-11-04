@@ -700,23 +700,57 @@
       feature.innerHTML = `
         <h3>💾 Backup & Data Export</h3>
         <p class="muted">
-          Gumawa ng kopya ng lahat ng mahahalagang records ng iyong negosyo.
+          Gumawa at magbalik ng kopya ng mahahalagang business records.
         </p>
 
         <div class="product">
           <h3>📦 Business Data Backup</h3>
           <p>
-            Kasama sa backup ang products, customers, sales,
-            debts, payments, stock movements at expenses.
+            Products, customers, sales, debts, payments,
+            stock movements at expenses.
           </p>
 
           <button class="full" type="button"
             onclick="downloadBusinessBackup()">
             💾 I-download ang Business Backup
           </button>
+
+          <p id="backupMessage" role="status" class="muted"></p>
         </div>
 
-        <p id="backupMessage" role="status" class="muted"></p>
+        <hr>
+
+        <div class="product">
+          <h3>📥 Restore from Backup</h3>
+          <p>
+            Pumili ng dating JSON backup file para maibalik
+            ang business records.
+          </p>
+
+          <label for="restoreBackupFile">
+            Piliin ang JSON Backup File
+          </label>
+
+          <input id="restoreBackupFile"
+            type="file"
+            accept=".json,application/json">
+
+          <button class="full" type="button"
+            onclick="validateBusinessBackup()">
+            🔍 Suriin ang Backup
+          </button>
+
+          <p id="restoreBackupMessage" role="status"></p>
+
+          <div id="restoreBackupPreview"></div>
+
+          <button class="full" id="restoreBusinessBackupButton"
+            type="button"
+            onclick="restoreBusinessBackup()"
+            disabled>
+            📥 Ibalik ang Business Records
+          </button>
+        </div>
       `;
 
       return;
@@ -2716,6 +2750,196 @@
 
     } finally {
       if (button) button.disabled = false;
+    }
+  }
+
+  async function validateBusinessBackup() {
+    const message = document.getElementById('restoreBackupMessage');
+    const preview = document.getElementById('restoreBackupPreview');
+    const restoreButton = document.getElementById('restoreBusinessBackupButton');
+    const fileInput = document.getElementById('restoreBackupFile');
+
+    if (!message || !preview || !restoreButton || !fileInput) return;
+
+    window.pendingBusinessBackup = null;
+    restoreButton.disabled = true;
+    preview.textContent = '';
+
+    try {
+      const file = fileInput.files[0];
+
+      if (!file) {
+        throw new Error('Pumili muna ng JSON backup file.');
+      }
+
+      const text = await file.text();
+      const backup = JSON.parse(text);
+
+      if (backup.app_name !== 'NegosyoHub PH' ||
+          backup.backup_version !== 1) {
+        throw new Error('Hindi valid na NegosyoHub PH backup file.');
+      }
+
+      const businessId = await getBusinessId();
+
+      if (!backup.business || backup.business.id !== businessId) {
+        throw new Error(
+          'Hindi tugma ang backup sa kasalukuyang negosyo.'
+        );
+      }
+
+      const tables = [
+        'products',
+        'customers',
+        'sales',
+        'debts',
+        'debt_payments',
+        'stock_movements',
+        'expenses'
+      ];
+
+      let totalRecords = 0;
+      const counts = [];
+
+      for (const table of tables) {
+        const rows = backup.records?.[table];
+
+        if (!Array.isArray(rows)) {
+          throw new Error('Kulang o invalid ang ' + table + ' records.');
+        }
+
+        const ids = new Set();
+
+        for (const row of rows) {
+          if (
+            !row ||
+            typeof row !== 'object' ||
+            !row.id ||
+            row.business_id !== businessId
+          ) {
+            throw new Error(
+              'May invalid o ibang business record sa ' + table + '.'
+            );
+          }
+
+          if (ids.has(row.id)) {
+            throw new Error('May duplicate ID sa ' + table + '.');
+          }
+
+          ids.add(row.id);
+        }
+
+        totalRecords += rows.length;
+        counts.push(table + ': ' + rows.length);
+      }
+
+      if (totalRecords === 0) {
+        throw new Error('Walang records sa napiling backup.');
+      }
+
+      window.pendingBusinessBackup = backup;
+
+      preview.textContent =
+        'VALID ANG BACKUP!\n\n' +
+        'Negosyo: ' + backup.business.name + '\n' +
+        'Petsa ng Backup: ' + backup.exported_at + '\n\n' +
+        counts.join('\n') +
+        '\n\nKabuuang records: ' + totalRecords +
+        '\n\nHanda na itong i-restore.';
+
+      restoreButton.disabled = false;
+      message.textContent = 'Matagumpay na nasuri ang backup!';
+
+    } catch (error) {
+      message.textContent = 'Hindi valid ang backup: ' + error.message;
+      window.pendingBusinessBackup = null;
+    }
+  }
+
+
+  async function restoreBusinessBackup() {
+    const message = document.getElementById('restoreBackupMessage');
+    const preview = document.getElementById('restoreBackupPreview');
+    const restoreButton = document.getElementById('restoreBusinessBackupButton');
+
+    if (!window.pendingBusinessBackup || !restoreButton) return;
+
+    let completedTables = 0;
+    const backup = window.pendingBusinessBackup;
+
+    try {
+      const businessId = await getBusinessId();
+
+      if (backup.business.id !== businessId) {
+        throw new Error('Hindi tugma ang negosyo sa backup.');
+      }
+
+      const confirmed = window.confirm(
+        'SIGURADUHIN BAGO MAG-RESTORE\n\n' +
+        'Ibabalik ang records mula sa backup.\n\n' +
+        'Ang matching IDs ay maa-update, at ang bagong IDs ay idaragdag.\n' +
+        'Hindi buburahin ang ibang kasalukuyang records.\n\n' +
+        'Sigurado ka bang magpapatuloy?'
+      );
+
+      if (!confirmed) return;
+
+      restoreButton.disabled = true;
+      message.textContent = 'Nagsisimula ang restoration...';
+
+      const tables = [
+        'products',
+        'customers',
+        'debts',
+        'sales',
+        'debt_payments',
+        'stock_movements',
+        'expenses'
+      ];
+
+      let restoredRecords = 0;
+
+      for (const table of tables) {
+        const rows = backup.records[table];
+
+        message.textContent = 'Ibinabalik ang ' + table + '...';
+
+        for (let i = 0; i < rows.length; i += 200) {
+          const batch = rows.slice(i, i + 200);
+
+          const { error } = await db
+            .from(table)
+            .upsert(batch, { onConflict: 'id' });
+
+          if (error) {
+            throw new Error(table + ': ' + error.message);
+          }
+
+          restoredRecords += batch.length;
+        }
+
+        completedTables++;
+      }
+
+      message.textContent =
+        'Matagumpay ang restore! ' +
+        restoredRecords + ' records ang naibalik.';
+
+      preview.textContent =
+        'Tapos na ang restoration.\n' +
+        'Mga table na naibalik: ' + completedTables + '\n' +
+        'Kabuuang records: ' + restoredRecords;
+
+      window.pendingBusinessBackup = null;
+      restoreButton.disabled = true;
+
+    } catch (error) {
+      message.textContent =
+        'May problema sa restore pagkatapos ng ' +
+        completedTables + ' table(s): ' + error.message +
+        '. Maaaring may naibalik nang records. Maaari mong ulitin ' +
+        'ang restore dahil gumagamit ito ng record IDs.';
+      restoreButton.disabled = false;
     }
   }
 
