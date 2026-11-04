@@ -187,6 +187,7 @@
   <section class="card hidden" id="dashboard">
     <h2>Dashboard</h2>
     <p id="welcome"></p>
+    <p id="autoBackupStatus" class="muted" role="status"></p>
     <div class="menu">
       <button onclick="showFeature('Analytics')">
   📈 Dashboard Analytics
@@ -229,7 +230,9 @@
   let currentBusinessId = null;
   let currentUser = null;
   let productsCache = [];
-
+let autoBackupTimer = null;
+let autoBackupInProgress = false;
+  
   async function signUp() {
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value;
