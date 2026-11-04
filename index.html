@@ -1047,6 +1047,32 @@ async function startBarcodeScanner() {
       { fps: 10, qrbox: { width: 250, height: 150 } },
       async (decodedText) => {
         barcodeInput.value = decodedText;
+        message.textContent = 'Hinahanap ang produkto...';
+
+try {
+  const businessId = await getBusinessId();
+
+  const { data: product, error } = await db
+    .from('products')
+    .select('name, selling_price, stock_quantity, barcode')
+    .eq('business_id', businessId)
+    .eq('barcode', decodedText)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  if (product) {
+    message.textContent =
+      'Produkto: ' + product.name +
+      ' | Presyo: ₱' + Number(product.selling_price).toFixed(2) +
+      ' | Stock: ' + product.stock_quantity;
+  } else {
+    message.textContent =
+      'Walang produktong tumugma sa barcode na ' + decodedText;
+  }
+} catch (error) {
+  message.textContent = 'Hindi mahanap ang produkto: ' + error.message;
+}
         message.textContent = 'Barcode nabasa: ' + decodedText;
 
         try {
