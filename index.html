@@ -853,7 +853,7 @@ let autoBackupInProgress = false;
 
     try {
       const businessId = await getBusinessId();
-
+console.log('Scanner businessId:', businessId);
       const { data: sales, error: salesError } = await db
         .from('sales')
         .select('product_id,quantity,selling_price,total_amount,sell_date')
