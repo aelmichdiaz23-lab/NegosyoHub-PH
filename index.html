@@ -200,6 +200,9 @@
       <button onclick="showFeature('Utang')">📝 Utang</button>
       <button onclick="showFeature('Reports')">📊 Reports</button>
       <button onclick="showFeature('Negosyo')">🏪 Negosyo</button>
+      <button onclick="showFeature('Backup')">
+  💾 Backup & Data Export
+</button>
     </div>
     <div class="card" id="feature">Pumili ng feature sa itaas.</div>
     <button onclick="signOut()">Logout</button>
@@ -689,6 +692,32 @@
         .addEventListener('input', updateSalePreview);
 
       loadSaleProducts();
+      return;
+    }
+
+    if (name === 'Backup') {
+      feature.innerHTML = `
+        <h3>💾 Backup & Data Export</h3>
+        <p class="muted">
+          Gumawa ng kopya ng lahat ng mahahalagang records ng iyong negosyo.
+        </p>
+
+        <div class="product">
+          <h3>📦 Business Data Backup</h3>
+          <p>
+            Kasama sa backup ang products, customers, sales,
+            debts, payments, stock movements at expenses.
+          </p>
+
+          <button class="full" type="button"
+            onclick="downloadBusinessBackup()">
+            💾 I-download ang Business Backup
+          </button>
+        </div>
+
+        <p id="backupMessage" role="status" class="muted"></p>
+      `;
+
       return;
     }
 
@@ -2557,6 +2586,135 @@
 
     } catch (error) {
       message.textContent = 'Hindi nagawa ang report: ' + error.message;
+    }
+  }
+
+  async function downloadBusinessBackup() {
+    const message = document.getElementById('backupMessage');
+    const button = document.querySelector(
+      '#feature button[onclick="downloadBusinessBackup()"]'
+    );
+
+    if (!message) return;
+
+    if (button) button.disabled = true;
+    message.textContent = 'Kinukuha ang business records...';
+
+    try {
+      const businessId = await getBusinessId();
+
+      // Kunin ang business profile
+      const { data: business, error: businessError } = await db
+        .from('businesses')
+        .select('*')
+        .eq('id', businessId)
+        .single();
+
+      if (businessError) throw businessError;
+
+      // Kunin ang lahat ng records, 500 kada request
+      async function fetchAllRecords(tableName) {
+        const pageSize = 500;
+        let allRows = [];
+        let offset = 0;
+
+        while (true) {
+          const { data, error } = await db
+            .from(tableName)
+            .select('*')
+            .eq('business_id', businessId)
+            .range(offset, offset + pageSize - 1);
+
+          if (error) {
+            throw new Error(
+              'Hindi makuha ang ' + tableName + ': ' + error.message
+            );
+          }
+
+          const rows = data || [];
+          allRows = allRows.concat(rows);
+
+          if (rows.length < pageSize) break;
+
+          offset += pageSize;
+        }
+
+        return allRows;
+      }
+
+      // I-download ang lahat ng business tables
+      const tables = [
+        'products',
+        'customers',
+        'sales',
+        'debts',
+        'debt_payments',
+        'stock_movements',
+        'expenses'
+      ];
+
+      const records = {};
+
+      for (const tableName of tables) {
+        message.textContent =
+          'Kinukuha ang ' + tableName + '...';
+
+        records[tableName] = await fetchAllRecords(tableName);
+      }
+
+      // Buuin ang backup file
+      const backup = {
+        app_name: 'NegosyoHub PH',
+        backup_version: 1,
+        exported_at: new Date().toISOString(),
+        business: business,
+        records: records,
+        record_counts: Object.fromEntries(
+          Object.entries(records).map(([name, rows]) => [
+            name,
+            rows.length
+          ])
+        )
+      };
+
+      const json = JSON.stringify(backup, null, 2);
+
+      const blob = new Blob(
+        [json],
+        { type: 'application/json;charset=utf-8' }
+      );
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/[:.]/g, '-');
+
+      link.href = url;
+      link.download =
+        'NegosyoHub_PH_Backup_' + timestamp + '.json';
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+      const totalRecords = Object.values(records)
+        .reduce((sum, rows) => sum + rows.length, 0);
+
+      message.textContent =
+        'Matagumpay ang backup! ' +
+        totalRecords +
+        ' records ang naisama sa JSON file.';
+
+    } catch (error) {
+      message.textContent =
+        'Hindi nagawa ang backup: ' + error.message;
+
+    } finally {
+      if (button) button.disabled = false;
     }
   }
 
