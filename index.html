@@ -170,6 +170,7 @@
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#087f5b">
 <meta name="mobile-web-app-capable" content="yes">
+<script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body>
 <header>
@@ -633,8 +634,15 @@ let autoBackupInProgress = false;
           <label>Pangalan ng produkto *</label>
           <input id="pName" required maxlength="150" placeholder="Halimbawa: Sardinas">
 
-          <label>Barcode (opsyonal)</label>
-          <input id="pBarcode" maxlength="100" placeholder="Halimbawa: SAR-001">
+<label>Barcode (opsyonal)</label>
+<input id="pBarcode" maxlength="100" placeholder="I-scan o ilagay ang barcode">
+
+<button type="button" onclick="startBarcodeScanner()">
+  📷 I-scan ang Barcode
+</button>
+
+<div id="barcodeScanner" style="display:none; width:100%; max-width:400px;"></div>
+<p id="barcodeMessage" role="status"></p>
 
           <label>Presyo ng puhunan (₱) *</label>
           <input id="pCost" type="number" min="0" step="0.01" required>
@@ -1014,7 +1022,50 @@ let autoBackupInProgress = false;
       button.disabled = false;
     }
   }
+let barcodeScanner = null;
 
+async function startBarcodeScanner() {
+  const scannerBox = document.getElementById('barcodeScanner');
+  const barcodeInput = document.getElementById('pBarcode');
+  const message = document.getElementById('barcodeMessage');
+
+  if (!window.Html5Qrcode) {
+    message.textContent = 'Hindi ma-load ang barcode scanner. Suriin ang internet.';
+    return;
+  }
+
+  scannerBox.style.display = 'block';
+  message.textContent = 'Binubuksan ang camera...';
+
+  try {
+    if (!barcodeScanner) {
+      barcodeScanner = new Html5Qrcode('barcodeScanner');
+    }
+
+    await barcodeScanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 250, height: 150 } },
+      async (decodedText) => {
+        barcodeInput.value = decodedText;
+        message.textContent = 'Barcode nabasa: ' + decodedText;
+
+        try {
+          await barcodeScanner.stop();
+        } catch (_) {}
+
+        scannerBox.style.display = 'none';
+      },
+      () => {}
+    );
+
+    message.textContent = 'Itapat ang camera sa barcode ng produkto.';
+  } catch (error) {
+    message.textContent =
+      'Hindi mabuksan ang camera. Payagan ang camera access at subukan ulit.';
+    scannerBox.style.display = 'none';
+    console.error(error);
+  }
+}
   async function loadProducts() {
     const list = document.getElementById('productList');
     if (!list) return;
