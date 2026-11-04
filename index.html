@@ -2839,10 +2839,6 @@ let autoBackupInProgress = false;
         counts.push(table + ': ' + rows.length);
       }
 
-      if (totalRecords === 0) {
-        throw new Error('Walang records sa napiling backup.');
-      }
-
       window.pendingBusinessBackup = backup;
 
       preview.textContent =
