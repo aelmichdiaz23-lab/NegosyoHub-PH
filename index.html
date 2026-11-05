@@ -1389,7 +1389,7 @@ try {
 
       const { data, error } = await db
         .from('products')
-        .select('id,name,cost_price,selling_price,stock_quantity')
+        .select('id,name,barcode,cost_price,selling_price,stock_quantity')
         .eq('business_id', businessId)
         .order('name');
 
