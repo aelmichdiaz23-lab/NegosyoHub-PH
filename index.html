@@ -2484,14 +2484,18 @@ try {
 
         totalSales += amount;
 
-        if (sale.sell_date === today) {
-          todaySales += amount;
-        }
+        
+const saleDate = sale.sell_date
+  ? sale.sell_date.slice(0, 10)
+  : '';
 
-        if (sale.sell_date && sale.sell_date.startsWith(month)) {
-          monthlySales += amount;
-        }
+if (saleDate === today) {
+  todaySales += amount;
+}
 
+if (saleDate && saleDate.startsWith(month)) {
+  monthlySales += amount;
+}
         const product = productMap.get(sale.product_id);
 
         let unitCost;
