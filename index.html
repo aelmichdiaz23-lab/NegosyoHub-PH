@@ -675,39 +675,55 @@ let autoBackupInProgress = false;
 
     if (name === 'Benta') {
       feature.innerHTML = `
-        <h3>💰 Mag-record ng Benta</h3>
-        <p class="muted">Piliin ang produkto at dami ng nabenta. Susubukan ng app na bawasan ang stock.</p>
+        <h3>🛒 POS — Scanner at Checkout</h3>
+        <p class="muted">I-scan ang produkto o ilagay ang barcode nito. Awtomatikong kukuwentahin ang pinamili.</p>
 
-        <form id="saleForm">
-          <label>Produkto *</label>
-          <select id="saleProduct" required>
-            <option value="">Kinukuha ang mga produkto...</option>
-          </select>
+        <label>Barcode ng produkto</label>
+        <input id="posBarcode" placeholder="I-scan dito ang barcode" autocomplete="off">
 
-          <label>Dami ng nabenta *</label>
-          <input id="saleQty" type="number" min="1" step="1" value="1" required>
+        <button class="full" type="button" onclick="startPosScanner()">
+          📷 Buksan ang Camera Scanner
+        </button>
+        <div id="posScanner" style="display:none;max-width:400px;width:100%"></div>
+        <p id="posMessage" role="status"></p>
 
-          <label>Presyo ng benta bawat isa (₱) *</label>
-          <input id="salePrice" type="number" min="0" step="0.01" required>
+        <hr>
+        <h3>Mga Pinamili</h3>
+        <div id="posCart">
+          Wala pang produktong naidaragdag.
+        </div>
 
-          <p id="salePreview" class="muted"></p>
-          <button class="full" id="saveSale" type="submit">I-save ang Benta at Bawasan ang Stock</button>
-        </form>
+        <div class="product">
+          <p>Kabuuang dami: <strong id="posTotalQty">0</strong></p>
+          <p>Kabuuang babayaran:</p>
+          <h2 id="posTotal">₱0.00</h2>
 
-        <p id="saleMessage" role="status"></p>
+          <label>Perang ibinayad ng customer (₱)</label>
+          <input id="posPayment" type="number" min="0" step="0.01" placeholder="Hal. 500">
+
+          <p>Sukli:</p>
+          <h2 id="posChange">₱0.00</h2>
+        </div>
+
+        <button class="full" id="posCheckout" type="button" onclick="checkoutPOS()">
+          ✅ Kumpirmahin ang Bayad at I-save ang Benta
+        </button>
+
+        <button class="full" type="button" onclick="clearPOSCart()">
+          🗑️ I-clear ang Pinamili
+        </button>
       `;
 
-      document.getElementById('saleForm')
-        .addEventListener('submit', saveSale);
+      document.getElementById('posBarcode')
+        .addEventListener('keydown', function(event) {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            addPOSBarcode();
+          }
+        });
 
-      document.getElementById('saleProduct')
-        .addEventListener('change', updateSalePreview);
-
-      document.getElementById('saleQty')
-        .addEventListener('input', updateSalePreview);
-
-      document.getElementById('salePrice')
-        .addEventListener('input', updateSalePreview);
+      document.getElementById('posPayment')
+        .addEventListener('input', updatePOSPayment);
 
       loadSaleProducts();
       return;
@@ -1023,6 +1039,215 @@ console.log('Scanner businessId:', businessId);
     }
   }
 let barcodeScanner = null;
+
+let posCart = [];
+let posScanner = null;
+
+function showPOSMessage(message, isError = false) {
+  const el = document.getElementById('posMessage');
+  if (!el) return;
+  el.textContent = message;
+  el.style.color = isError ? 'red' : 'green';
+}
+
+function addPOSBarcode() {
+  const input = document.getElementById('posBarcode');
+  if (!input) return;
+
+  const barcode = input.value.trim();
+  if (!barcode) return;
+
+  const product = productsCache.find(
+    p => String(p.barcode || '').trim() === barcode
+  );
+
+  if (!product) {
+    showPOSMessage('Hindi makita ang barcode na ' + barcode, true);
+    input.select();
+    return;
+  }
+
+  const existing = posCart.find(item => item.id === product.id);
+  const currentQty = existing ? existing.quantity : 0;
+  const stock = Number(product.stock_quantity || 0);
+
+  if (currentQty + 1 > stock) {
+    showPOSMessage('Kulang ang stock ng ' + product.name, true);
+    input.value = '';
+    input.focus();
+    return;
+  }
+
+  if (existing) {
+    existing.quantity += 1;
+  } else {
+    posCart.push({
+      id: product.id,
+      name: product.name,
+      barcode: product.barcode || '',
+      price: Number(product.selling_price || 0),
+      quantity: 1,
+      stock: stock
+    });
+  }
+
+  input.value = '';
+  renderPOSCart();
+  showPOSMessage('Naidagdag: ' + product.name);
+  input.focus();
+}
+
+function renderPOSCart() {
+  const cart = document.getElementById('posCart');
+  if (!cart) return;
+
+  if (posCart.length === 0) {
+    cart.textContent = 'Wala pang produktong naidaragdag.';
+  } else {
+    cart.innerHTML = posCart.map((item, index) => `
+      <div class="product">
+        <strong>${escapeHTML(item.name)}</strong>
+        <p>Presyo: ₱${item.price.toFixed(2)}</p>
+        <label>Dami</label>
+        <input type="number" min="1" max="${item.stock}"
+          value="${item.quantity}"
+          onchange="changePOSQuantity(${index}, this.value)">
+        <p>Subtotal: ₱${(item.price * item.quantity).toFixed(2)}</p>
+        <button type="button" onclick="removePOSItem(${index})">
+          Alisin
+        </button>
+      </div>
+    `).join('');
+  }
+
+  const qty = posCart.reduce((sum, item) => sum + item.quantity, 0);
+  const total = posCart.reduce(
+    (sum, item) => sum + item.price * item.quantity, 0
+  );
+
+  document.getElementById('posTotalQty').textContent = qty;
+  document.getElementById('posTotal').textContent =
+    '₱' + total.toFixed(2);
+
+  updatePOSPayment();
+}
+
+function changePOSQuantity(index, value) {
+  const item = posCart[index];
+  if (!item) return;
+
+  const qty = Number(value);
+  if (!Number.isInteger(qty) || qty < 1 || qty > item.stock) {
+    showPOSMessage('Hindi puwede ang daming iyan. Stock: ' + item.stock, true);
+    renderPOSCart();
+    return;
+  }
+
+  item.quantity = qty;
+  renderPOSCart();
+}
+
+function removePOSItem(index) {
+  posCart.splice(index, 1);
+  renderPOSCart();
+}
+
+function clearPOSCart() {
+  posCart = [];
+  renderPOSCart();
+  showPOSMessage('Na-clear ang listahan ng pinamili.');
+}
+
+function updatePOSPayment() {
+  const paymentEl = document.getElementById('posPayment');
+  const changeEl = document.getElementById('posChange');
+  if (!paymentEl || !changeEl) return;
+
+  const total = posCart.reduce(
+    (sum, item) => sum + item.price * item.quantity, 0
+  );
+  const payment = Number(paymentEl.value || 0);
+  const change = payment - total;
+
+  changeEl.textContent =
+    '₱' + Math.max(0, change).toFixed(2);
+}
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[char]);
+}
+
+async function startPosScanner() {
+  const scannerElement = document.getElementById('posScanner');
+
+  if (!scannerElement) return;
+
+  if (typeof Html5Qrcode === 'undefined') {
+    showPOSMessage(
+      'Hindi pa nakakarga ang camera scanner library. Kailangan muna itong ayusin.',
+      true
+    );
+    return;
+  }
+
+  scannerElement.style.display = 'block';
+
+  try {
+    if (posScanner) {
+      await posScanner.stop().catch(() => {});
+      posScanner.clear();
+    }
+
+    posScanner = new Html5Qrcode('posScanner');
+
+    await posScanner.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 250, height: 150 } },
+      async (decodedText) => {
+        const input = document.getElementById('posBarcode');
+        if (input) input.value = decodedText;
+
+        await posScanner.stop();
+        posScanner.clear();
+        posScanner = null;
+        scannerElement.style.display = 'none';
+
+        addPOSBarcode();
+      },
+      () => {}
+    );
+
+    showPOSMessage('Itapat ang camera sa barcode ng produkto.');
+  } catch (error) {
+    showPOSMessage(
+      'Hindi mabuksan ang camera. Payagan ang camera access at subukan ulit.',
+      true
+    );
+    console.error(error);
+  }
+}
+
+async function stopPosScanner() {
+  if (!posScanner) return;
+
+  try {
+    await posScanner.stop();
+    posScanner.clear();
+  } catch (error) {
+    console.error(error);
+  }
+
+  posScanner = null;
+
+  const scannerElement = document.getElementById('posScanner');
+  if (scannerElement) scannerElement.style.display = 'none';
+}
 
 async function startBarcodeScanner() {
   const scannerBox = document.getElementById('barcodeScanner');
