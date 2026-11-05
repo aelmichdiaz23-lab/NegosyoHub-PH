@@ -1,5 +1,5 @@
 
-const CACHE_NAME = "negosyohub-shell-v2";
+const CACHE_NAME = "negosyohub-shell-v3";
 
 const APP_FILES = [
   "./",
@@ -17,14 +17,19 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key.startsWith("negosyohub-shell-") &&
-                           key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
+    caches.keys()
+      .then((keys) =>
+        Promise.all(
+          keys
+            .filter(
+              (key) =>
+                key.startsWith("negosyohub-shell-") &&
+                key !== CACHE_NAME
+            )
+            .map((key) => caches.delete(key))
+        )
       )
-    ).then(() => self.clients.claim())
+      .then(() => self.clients.claim())
   );
 });
 
@@ -40,32 +45,34 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(
-    fetch(request).catch(async () => {
-      const cached = await caches.match(request);
+    fetch(request)
+      .then((response) => response)
+      .catch(async () => {
+        const cached = await caches.match(request);
 
-      if (cached) {
-        return cached;
-      }
-
-      if (request.mode === "navigate") {
-        const appPage = await caches.match("./index.html");
-
-        if (appPage) {
-          return appPage;
+        if (cached) {
+          return cached;
         }
-      }
 
-      return new Response(
-        "Walang koneksyon. Pakisuri ang internet at subukan ulit.",
-        {
-          status: 503,
-          statusText: "Service Unavailable",
-          headers: {
-            "Content-Type": "text/plain; charset=utf-8"
+        if (request.mode === "navigate") {
+          const appPage = await caches.match("./index.html");
+
+          if (appPage) {
+            return appPage;
           }
         }
-      );
-    })
+
+        return new Response(
+          "Walang koneksyon. Pakisuri ang internet at subukan ulit.",
+          {
+            status: 503,
+            statusText: "Service Unavailable",
+            headers: {
+              "Content-Type": "text/plain; charset=utf-8"
+            }
+          }
+        );
+      })
   );
 });
 
