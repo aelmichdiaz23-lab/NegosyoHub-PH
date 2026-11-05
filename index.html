@@ -2483,11 +2483,10 @@ try {
         const amount = Number(sale.total_amount || 0);
 
         totalSales += amount;
-
         
-const saleDate = sale.sell_date
-  ? sale.sell_date.slice(0, 10)
-  : '';
+const saleDate = (sale.sell_date || sale.sale_date || '')
+  .slice(0, 10);
+
 
 if (saleDate === today) {
   todaySales += amount;
