@@ -215,19 +215,20 @@
 
 <script>
   // SUPABASE SETTINGS
-  const SUPABASE_URL =
-    'https://qdylgqxcqivdqpcwhwjp.supabase.co';
 
-  const SUPABASE_PUBLISHABLE_KEY =
-    'sb_publishable_1O4HW3947xic0GQgUPGxxQ_XJxwrKis';
+const SUPABASE_URL =
+  'https://wzmjpnqcsrsfvuxlsahf.supabase.co';
 
-  const SITE_URL =
-    'https://aelmichdiaz23-lab.github.io/NegosyoHub-PH/';
+const SUPABASE_PUBLISHABLE_KEY =
+  'sb_publishable_1O4HW3947xic0GQgUPGxxQ_XJxwrKis';
 
-  const db = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY
-  );
+const SITE_URL =
+  'https://aelmichdiaz23-lab.github.io/NegosyoHub-PH/';
+
+const db = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_PUBLISHABLE_KEY
+);
 
   let currentBusinessId = null;
   let currentUser = null;
