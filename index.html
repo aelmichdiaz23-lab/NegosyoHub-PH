@@ -1487,41 +1487,52 @@ try {
     }
   }
 
-  async function loadSaleProducts() {
-    const select = document.getElementById('saleProduct');
+async function loadSaleProducts() {
+  const select = document.getElementById('saleProduct');
+  const message = document.getElementById('saleMessage');
 
-    try {
-      const businessId = await getBusinessId();
+  // Huminto kung wala ang dropdown sa kasalukuyang page
+  if (!select) return;
 
-      const { data, error } = await db
-        .from('products')
-        .select('id,name,barcode,cost_price,selling_price,stock_quantity')
-        .eq('business_id', businessId)
-        .order('name');
+  try {
+    const businessId = await getBusinessId();
 
-      if (error) throw error;
+    const { data, error } = await db
+      .from('products')
+      .select('id,name,barcode,cost_price,selling_price,stock_quantity')
+      .eq('business_id', businessId)
+      .order('name');
 
-      productsCache = data || [];
-      select.innerHTML = '<option value="">Piliin ang produkto</option>';
+    if (error) throw error;
 
-      productsCache.forEach(product => {
-        const option = document.createElement('option');
-        option.value = product.id;
-        option.textContent =
-          product.name + ' — stock: ' + product.stock_quantity;
-        select.appendChild(option);
-      });
+    productsCache = data || [];
 
-      if (!productsCache.length) {
-        select.innerHTML = '<option value="">Wala pang produkto</option>';
-      }
-    } catch (error) {
-      select.innerHTML = '<option value="">Hindi makuha ang mga produkto</option>';
-      document.getElementById('saleMessage').textContent =
-        'Error: ' + error.message;
+    select.innerHTML = '<option value="">Piliin ang produkto</option>';
+
+    productsCache.forEach(product => {
+      const option = document.createElement('option');
+      option.value = product.id;
+      option.textContent =
+        product.name + ' — stock: ' + product.stock_quantity;
+
+      select.appendChild(option);
+    });
+
+    if (!productsCache.length) {
+      select.innerHTML = '<option value="">Wala pang produkto</option>';
+    }
+
+  } catch (error) {
+    console.error('loadSaleProducts error:', error);
+
+    select.innerHTML =
+      '<option value="">Hindi makuha ang mga produkto</option>';
+
+    if (message) {
+      message.textContent = 'Error: ' + error.message;
     }
   }
-
+}
   function updateSalePreview() {
     const id = document.getElementById('saleProduct').value;
     const product = productsCache.find(p => p.id === id);
