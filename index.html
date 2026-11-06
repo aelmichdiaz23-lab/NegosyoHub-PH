@@ -1150,6 +1150,94 @@ function removePOSItem(index) {
   renderPOSCart();
 }
 
+async function checkoutPOS() {
+  const button = document.getElementById('posCheckout');
+  const paymentInput = document.getElementById('posPayment');
+
+  if (!button || !paymentInput) return;
+
+  if (!posCart || posCart.length === 0) {
+    showPOSMessage('Walang laman ang cart.', true);
+    return;
+  }
+
+  const total = posCart.reduce(
+    (sum, item) => sum + Number(item.price) * Number(item.quantity),
+    0
+  );
+
+  const payment = Number(paymentInput.value);
+
+  if (
+    paymentInput.value.trim() === '' ||
+    !Number.isFinite(payment) ||
+    payment < total
+  ) {
+    showPOSMessage(
+      'Kulang ang bayad. Kailangang ₱' + total.toFixed(2) + ' o higit pa.',
+      true
+    );
+    return;
+  }
+
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Pinoproseso ang checkout...';
+
+  try {
+    await getBusinessId();
+
+    const items = posCart.map(item => ({
+      product_id: item.id,
+      quantity: item.quantity
+    }));
+
+    const { data, error } = await db.rpc('checkout_pos', {
+      p_items: items
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    if (!data || data.success !== true) {
+      throw new Error('Hindi nakumpirma ang matagumpay na checkout.');
+    }
+
+    const finalTotal = Number(data.total_amount);
+    const change = payment - finalTotal;
+
+    posCart = [];
+    renderPOSCart();
+
+    paymentInput.value = '';
+    updatePOSPayment();
+
+    if (typeof loadSaleProducts === 'function') {
+      await loadSaleProducts();
+    }
+
+    showPOSMessage(
+      'Matagumpay ang benta! Kabuuan: ₱' +
+      finalTotal.toFixed(2) +
+      ' | Bayad: ₱' +
+      payment.toFixed(2) +
+      ' | Sukli: ₱' +
+      change.toFixed(2)
+    );
+  } catch (error) {
+    console.error('POS checkout error:', error);
+
+    showPOSMessage(
+      'Hindi natuloy ang checkout: ' + error.message,
+      true
+    );
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
 function clearPOSCart() {
   posCart = [];
   renderPOSCart();
