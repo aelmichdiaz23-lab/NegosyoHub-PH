@@ -1192,9 +1192,26 @@ async function checkoutPOS() {
       quantity: item.quantity
     }));
 
-    const { data, error } = await db.rpc('checkout_pos', {
-      p_items: items
-    });
+
+const { data: validation, error: validationError } =
+  await db.rpc('validate_pos_cart', {
+    p_items: items
+  });
+
+if (validationError) {
+  throw new Error(
+    'Hindi pumasa ang cart validation: ' + validationError.message
+  );
+}
+
+if (!validation || validation.success !== true) {
+  throw new Error('Hindi pumasa ang pagsusuri ng cart.');
+}
+
+const { data, error } = await db.rpc('checkout_pos', {
+  p_items: items
+});
+
 
     if (error) {
       throw new Error(error.message);
