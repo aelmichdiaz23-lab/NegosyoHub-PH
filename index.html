@@ -1230,9 +1230,12 @@ const { data, error } = await db.rpc('checkout_pos', {
     paymentInput.value = '';
     updatePOSPayment();
 
-    if (typeof loadSaleProducts === 'function') {
-      await loadSaleProducts();
-    }
+if (
+  typeof loadSaleProducts === 'function' &&
+  document.getElementById('saleProduct')
+) {
+  await loadSaleProducts();
+}
 
     showPOSMessage(
       'Matagumpay ang benta! Kabuuan: ₱' +
